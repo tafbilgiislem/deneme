@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pro SVG Slide Editor</title>
+<style>
+body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; }
+#container { display: flex; flex-wrap: wrap; gap: 20px; }
+#svg-container { flex: 3; border:1px solid #ccc; position: relative; width: 100%; max-width: 1920px; aspect-ratio: 16/9; background: #fff; }
+#svg-container svg { width:100%; height:100%; }
+#editor { flex: 1; min-width: 300px; background:#fff; padding:10px; border:1px solid #ccc; max-height: 80vh; overflow-y: auto; }
+input, select { display:block; width: 100%; margin:5px 0; padding:5px; box-sizing:border-box; }
+button { margin:5px 0; padding:5px 10px; cursor:pointer; }
+.slide-selector { margin-bottom:10px; }
+</style>
+</head>
+<body>
+
+<h2>Pro SVG Slide Editor</h2>
+
+<div id="container">
+  <div id="svg-container"></div>
+  <div id="editor">
+    <select id="slideSelector" class="slide-selector"></select>
+    <div id="textInputs"></div>
+    <button onclick="undo()">Undo</button>
+    <button onclick="save()">Save</button>
+  </div>
+</div>
+
+<script>
+const workerURL="WORKER_URL";   // Worker URL
+const apiKey="SVG_SECRET";      // Worker API Key
+const slides = [
+  "SVG_URL1",
+  "SVG_URL2",
+  "SVG_URL3"
+];  // Slide SVG URL list
+
+let currentSlideIndex=0;
+let lastState="";
+let textMap=[];
+
+// Slide Selector
+const slideSelector=document.getElementById("slideSelector");
+slides.forEach((s,i)=>{ 
+  const opt=document.createElement("option"); 
+  opt.value=i; 
+  opt.text="Slide "+(i+1); 
+  slideSelector.appendChild(opt);
+});
+slideSelector.addEventListener("change", ()=>{ currentSlideIndex=parseInt(slideSelector.value); loadSlide(currentSlideIndex); });
+
+// Load Slide
+async function loadSlide(index){
+  const url=slides[index]+"?"+Date.now();
+  const res=await fetch(url);
+  const svgText=await res.text();
+  const container=document.getElementById("svg-container");
+  container.innerHTML=svgText;
+  const svg=container.querySelector("svg");
+  svg.setAttribute("viewBox","0 0 1920 1080");
+  svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+  lastState=svg.outerHTML;
+  buildEditor();
+}
+
+// Build Editor Inputs
+function buildEditor(){
+  const svg=document.querySelector("#svg-container svg");
+  const texts=svg.querySelectorAll("text");
+  const editor=document.getElementById("textInputs");
+  editor.innerHTML="";
+  textMap=[];
+  let i=0;
+  texts.forEach(t=>{
+    let id=t.id;
+    if(!id){ id="text_auto_"+i; t.id=id; }
+    const wrapper=document.createElement("div");
+    const input=document.createElement("input");
+    input.value=t.textContent;
+    input.dataset.target=id;
+    input.placeholder="Text "+(i+1);
+    input.addEventListener("input", ()=>{ updateText(id,input.value); });
+    wrapper.appendChild(input);
+    
+    // Font size
+    const fontInput=document.createElement("input");
+    fontInput.type="number";
+    fontInput.value=parseInt(window.getComputedStyle(t).fontSize);
+    fontInput.placeholder="Font size";
+    fontInput.addEventListener("input", ()=>{ t.setAttribute("font-size", fontInput.value); });
+    wrapper.appendChild(fontInput);
+    
+    // Color
+    const colorInput=document.createElement("input");
+    colorInput.type="color";
+    const c=window.getComputedStyle(t).fill||"#000000";
+    colorInput.value=rgbToHex(c);
+    colorInput.addEventListener("input", ()=>{ t.setAttribute("fill", colorInput.value); });
+    wrapper.appendChild(colorInput);
+
+    editor.appendChild(wrapper);
+    textMap.push(input);
+    i++;
+  });
+}
+
+// Live update
+function updateText(id,value){
+  const svg=document.querySelector("#svg-container svg");
+  const t=svg.getElementById(id);
+  if(t) t.textContent=value;
+  lastState=svg.outerHTML;
+}
+
+// Undo
+function undo(){
+  const svg=document.querySelector("#svg-container svg");
+  svg.outerHTML=lastState;
+  buildEditor();
+}
+
+// Save
+async function save(){
+  const svg=document.querySelector("#svg-container svg");
+  const data=svg.outerHTML;
+  try{
+    const res=await fetch(workerURL,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":apiKey
+      },
+      body:JSON.stringify({svg:data})
+    });
+    const text=await res.text();
+    alert(text || "SVG kaydedildi");
+  }catch(e){ alert("Save error: "+e); }
+}
+
+// Load first slide
+loadSlide(currentSlideIndex);
+
+// Helpers
+function rgbToHex(rgb){
+  if(!rgb) return "#000000";
+  const result=rgb.match(/\d+/g);
+  if(!result) return "#000000";
+  return "#"+((1 << 24) + (parseInt(result[0]) <<16) + (parseInt(result[1])<<8) + parseInt(result[2])).toString(16).slice(1);
+}
+
+</script>
+</body>
+</html>
