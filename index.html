@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pro SVG Editor - Drag & Drop + Multi-user</title>
+<title>3 Slide Pro SVG Editor</title>
 <style>
 body { font-family: Arial; margin:0; padding:20px; background:#f5f5f5;}
 #container { display:flex; flex-wrap:wrap; gap:20px;}
@@ -11,14 +11,16 @@ body { font-family: Arial; margin:0; padding:20px; background:#f5f5f5;}
 #editor { flex:1; min-width:300px; background:#fff; padding:10px; border:1px solid #ccc; max-height:80vh; overflow-y:auto; }
 input, select { display:block; width:100%; margin:5px 0; padding:5px; box-sizing:border-box; }
 button { margin:5px 0; padding:5px 10px; cursor:pointer; }
+.slide-selector { margin-bottom:10px; }
 </style>
 </head>
 <body>
-<h2>Pro SVG Editor</h2>
+<h2>3 Slide Pro SVG Editor</h2>
 
 <div id="container">
   <div id="svg-container"></div>
   <div id="editor">
+    <select id="slideSelector" class="slide-selector"></select>
     <div id="textInputs"></div>
     <button onclick="undo()">Undo</button>
     <button onclick="save()">Save</button>
@@ -29,19 +31,38 @@ button { margin:5px 0; padding:5px 10px; cursor:pointer; }
 // CONFIG
 const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
 const apiKey="SVG_SECRET_12345";    // Worker API Key
-const svgURL="https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg";       // Initial SVG
+const slides = [
+  "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
+  "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/info.svg",
+  "https://raw.githubusercontent.com/tafbilgiislem/olympic-countdown/refs/heads/main/olympic-countdown.svg"
+]; // 3 slide SVG URL
 
-let lastState="";
-let textMap=[];
+let currentSlideIndex = 0;
+let lastState = "";
+let textMap = [];
 
-// Load SVG
-async function loadSVG(){
-  const res=await fetch(svgURL+"?"+Date.now());
+// Slide selector setup
+const slideSelector = document.getElementById("slideSelector");
+slides.forEach((s,i)=>{
+  const opt=document.createElement("option");
+  opt.value=i;
+  opt.text="Slide "+(i+1);
+  slideSelector.appendChild(opt);
+});
+slideSelector.addEventListener("change", ()=>{
+  currentSlideIndex = parseInt(slideSelector.value);
+  loadSlide(currentSlideIndex);
+});
+
+// Load Slide
+async function loadSlide(index){
+  const url=slides[index]+"?"+Date.now();
+  const res=await fetch(url);
   const svgText=await res.text();
   updateSVGFromRemote(svgText);
 }
 
-// Update SVG DOM and editor
+// Update SVG DOM & editor
 function updateSVGFromRemote(newSVG){
   const container=document.getElementById("svg-container");
   container.innerHTML=newSVG;
@@ -50,20 +71,15 @@ function updateSVGFromRemote(newSVG){
   svg.setAttribute("viewBox","0 0 1920 1080");
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
 
-  // Enable drag
   const texts=svg.querySelectorAll("text");
-  texts.forEach(t=>{
-    enableDrag(t);
-  });
+  texts.forEach(t=>enableDrag(t));
 
-  // Build editor inputs
   buildEditor();
 
-  // Save current state for undo
   lastState=svg.outerHTML;
 }
 
-// Build Editor Inputs
+// Build Editor
 function buildEditor(){
   const svg=document.querySelector("#svg-container svg");
   const texts=svg.querySelectorAll("text");
@@ -74,20 +90,40 @@ function buildEditor(){
   texts.forEach(t=>{
     let id=t.id;
     if(!id){ id="text_auto_"+i; t.id=id; }
+
     const wrapper=document.createElement("div");
+
+    // Text content
     const input=document.createElement("input");
     input.value=t.textContent;
     input.dataset.target=id;
     input.placeholder="Text "+(i+1);
     input.addEventListener("input", ()=>{ updateText(id,input.value); });
     wrapper.appendChild(input);
-    textMap.push(input);
+
+    // Font size
+    const fontInput=document.createElement("input");
+    fontInput.type="number";
+    fontInput.value=parseInt(window.getComputedStyle(t).fontSize) || 24;
+    fontInput.placeholder="Font size";
+    fontInput.addEventListener("input", ()=>{ t.setAttribute("font-size", fontInput.value); });
+    wrapper.appendChild(fontInput);
+
+    // Color
+    const colorInput=document.createElement("input");
+    colorInput.type="color";
+    const c=window.getComputedStyle(t).fill||"#000000";
+    colorInput.value=rgbToHex(c);
+    colorInput.addEventListener("input", ()=>{ t.setAttribute("fill", colorInput.value); });
+    wrapper.appendChild(colorInput);
+
     editor.appendChild(wrapper);
+    textMap.push(input);
     i++;
   });
 }
 
-// Live update text
+// Update text live
 function updateText(id,value){
   const svg=document.querySelector("#svg-container svg");
   const t=svg.getElementById(id);
@@ -95,7 +131,7 @@ function updateText(id,value){
   lastState=svg.outerHTML;
 }
 
-// Enable drag for text
+// Drag & Drop
 function enableDrag(t){
   let offsetX=0, offsetY=0;
   t.addEventListener("mousedown", e=>{
@@ -115,7 +151,7 @@ function enableDrag(t){
   });
 }
 
-// Sync editor inputs with SVG DOM
+// Sync inputs with SVG
 function syncEditorInputs(){
   const svg=document.querySelector("#svg-container svg");
   textMap.forEach(input=>{
@@ -151,8 +187,16 @@ async function save(){
   }catch(e){ alert("Save error: "+e); }
 }
 
-// Load initial
-loadSVG();
+// Helpers
+function rgbToHex(rgb){
+  if(!rgb) return "#000000";
+  const result=rgb.match(/\d+/g);
+  if(!result) return "#000000";
+  return "#"+((1 << 24) + (parseInt(result[0]) <<16) + (parseInt(result[1])<<8) + parseInt(result[2])).toString(16).slice(1);
+}
+
+// Load first slide
+loadSlide(currentSlideIndex);
 
 </script>
 </body>
