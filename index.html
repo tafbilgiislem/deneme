@@ -20,6 +20,7 @@ button{width:100%;margin-top:6px;}
 </head>
 <body>
 
+<!-- LOGIN -->
 <div id="loginWrap">
 <h2>Login</h2>
 <input id="user" placeholder="Kullanıcı Adı">
@@ -28,6 +29,7 @@ button{width:100%;margin-top:6px;}
 <p id="msg" style="color:red"></p>
 </div>
 
+<!-- EDITOR -->
 <div id="editorWrap" style="display:none">
 <h2>SVG Slide Editor Instant Save</h2>
 <select id="slideSelect"></select>
@@ -43,12 +45,12 @@ button{width:100%;margin-top:6px;}
 
 <script>
 // CONFIG
-const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
-const apiKey="SVG_SECRET_12345";    // Worker API Key
+const workerURL="WORKER_URL"; // Worker URL (Cloudflare)
+const apiKey="SVG_SECRET";    // Worker API Key
 const slides=[
-"https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
-"https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
-"https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg"
+"https://raw.githubusercontent.com/tafbilgiislem/ypm/main/slide1.svg",
+"https://raw.githubusercontent.com/tafbilgiislem/ypm/main/slide2.svg",
+"https://raw.githubusercontent.com/tafbilgiislem/ypm/main/slide3.svg"
 ];
 
 // LOGIN
@@ -86,7 +88,6 @@ let history=[];
 
 // INIT EDITOR
 function initEditor(){
-  // Slide selector
   slides.forEach((s,i)=>{
     const opt=document.createElement("option");
     opt.value=i;
@@ -172,14 +173,14 @@ function undo(){
   }
 }
 
-// SAVE
+// SAVE (POST fix)
 async function save(){
   const token=sessionStorage.getItem("token");
   if(!token){alert("Yetkisiz!"); return;}
   const svg=svgBox.querySelector("svg").outerHTML;
   try{
     await fetch(workerURL,{
-      method:"POST",
+      method:"POST",                 // 🔑 POST method
       headers:{
         "Content-Type":"application/json",
         "x-api-key":apiKey,
