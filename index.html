@@ -1,356 +1,160 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-
 <meta charset="UTF-8">
-
-<title>SVG Editor</title>
-
+<title>SVG Slide Editor Instant Save</title>
 <style>
-
-body{
-
-font-family:Arial;
-
-background:#eee;
-
-padding:20px;
-
-}
-
-#wrap{
-
-display:flex;
-
-gap:20px;
-
-}
-
-#svg{
-
-flex:3;
-
-background:white;
-
-border:1px solid #ccc;
-
-aspect-ratio:16/9;
-
-}
-
-#svg svg{
-
-width:100%;
-
-height:100%;
-
-}
-
-#panel{
-
-flex:1;
-
-background:white;
-
-padding:10px;
-
-border:1px solid #ccc;
-
-max-height:85vh;
-
-overflow:auto;
-
-}
-
-input{
-
-width:100%;
-
-margin:5px 0;
-
-}
-
-button{
-
-width:100%;
-
-margin-top:6px;
-
-}
-
+body{font-family:Arial;background:#eee;padding:20px;}
+#wrap{display:flex;gap:20px;}
+#svgBox{flex:3;background:white;border:1px solid #ccc;aspect-ratio:16/9;}
+#svgBox svg{width:100%;height:100%;}
+#panel{flex:1;background:white;padding:10px;border:1px solid #ccc;max-height:85vh;overflow:auto;}
+input{width:100%;margin:5px 0;}
+button{width:100%;margin-top:6px;}
+.activeText{stroke:red;stroke-width:1;}
 </style>
-
 </head>
-
 <body>
 
-<h2>SVG EDITOR</h2>
+<h2>SVG Slide Editor Instant Save</h2>
 
-<select id="slide"></select>
+<select id="slideSelect"></select>
 
 <div id="wrap">
-
-<div id="svg"></div>
-
-<div id="panel">
-
-<div id="editor"></div>
-
-<button onclick="save()">SAVE</button>
-
-<button onclick="reload()">RELOAD</button>
-
-</div>
-
+  <div id="svgBox"></div>
+  <div id="panel">
+    <div id="editor"></div>
+    <button onclick="save()">SAVE</button>
+    <button onclick="undo()">UNDO</button>
+  </div>
 </div>
 
 <script>
-
-/******** CONFIG ********/
-
-const worker="https://githubtoken.tafbilgiislem.workers.dev/";
-
-const key="SVG_SECRET_12345";
-
+// CONFIG
+const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
+const apiKey="SVG_SECRET_12345";    // Worker API Key
 const slides=[
-
 "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
-
-"SVG_URL2",
-
-"SVG_URL3"
-
+"https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
+"https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg"
 ];
 
-/******** STATE ********/
+// STATE
+let slideIndex=0;
+let history=[];
 
-let index=0;
-
-/******** SELECT ********/
-
+// SLIDE SELECT
 slides.forEach((s,i)=>{
-
-let o=document.createElement("option");
-
-o.value=i;
-
-o.text="Slide "+(i+1);
-
-slide.appendChild(o);
-
+  const opt=document.createElement("option");
+  opt.value=i;
+  opt.text="Slide "+(i+1);
+  slideSelect.appendChild(opt);
 });
+slideSelect.onchange=()=>{slideIndex=slideSelect.value; loadSlide();};
 
-slide.onchange=()=>{
-
-index=slide.value;
-
-load();
-
-};
-
-/******** LOAD ********/
-
-async function load(){
-
-let url=slides[index]+"?v="+Date.now();
-
-let r=await fetch(url);
-
-let t=await r.text();
-
-svg.innerHTML=t;
-
-let s=document.querySelector("#svg svg");
-
-s.setAttribute("viewBox","0 0 1920 1080");
-
-build();
-
+// LOAD SLIDE
+async function loadSlide(){
+  const url=slides[slideIndex]+"?v="+Date.now();
+  const res=await fetch(url);
+  const svgText=await res.text();
+  svgBox.innerHTML=svgText;
+  const s=svgBox.querySelector("svg");
+  if(!s) return;
+  s.setAttribute("viewBox","0 0 1920 1080");
+  buildEditor();
+  prepareTexts();
+  history=[s.outerHTML];
 }
 
-/******** BUILD PANEL ********/
+// BUILD PANEL
+function buildEditor(){
+  editor.innerHTML="";
+  const texts=svgBox.querySelectorAll("text");
+  texts.forEach((t,i)=>{
+    if(!t.id) t.id="txt"+i;
+    const div=document.createElement("div");
 
-function build(){
+    // Text content
+    const input=document.createElement("input");
+    input.value=t.textContent;
+    input.oninput=()=>{ t.textContent=input.value; };
+    div.appendChild(input);
 
-editor.innerHTML="";
+    // Font size
+    const size=document.createElement("input");
+    size.type="number";
+    size.value=parseInt(getComputedStyle(t).fontSize);
+    size.oninput=()=>{ t.setAttribute("font-size",size.value); t.style.fontSize=size.value+"px"; };
+    div.appendChild(size);
 
-let texts=document.querySelectorAll("text");
+    // Color
+    const color=document.createElement("input");
+    color.type="color";
+    color.value=getColor(t);
+    color.oninput=()=>{ t.setAttribute("fill",color.value); t.style.fill=color.value; };
+    div.appendChild(color);
 
-let i=0;
-
-texts.forEach(t=>{
-
-if(!t.id){
-
-t.id="txt"+i;
-
+    editor.appendChild(div);
+  });
 }
 
-let box=document.createElement("div");
-
-/******** TEXT ********/
-
-let input=document.createElement("input");
-
-input.value=t.textContent;
-
-input.oninput=()=>{
-
-t.textContent=input.value;
-
-};
-
-box.appendChild(input);
-
-/******** SIZE ********/
-
-let size=document.createElement("input");
-
-size.type="number";
-
-size.value=t.getAttribute("font-size")||24;
-
-size.oninput=()=>{
-
-t.setAttribute("font-size",size.value);
-
-t.style.fontSize=size.value+"px";
-
-};
-
-box.appendChild(size);
-
-/******** COLOR ********/
-
-let color=document.createElement("input");
-
-color.type="color";
-
-color.value=getColor(t);
-
-color.oninput=()=>{
-
-t.setAttribute("fill",color.value);
-
-t.style.fill=color.value;
-
-};
-
-box.appendChild(color);
-
-/******** DRAG ********/
-
-drag(t);
-
-editor.appendChild(box);
-
-i++;
-
-});
-
+// DRAG
+function prepareTexts(){
+  const texts=svgBox.querySelectorAll("text");
+  texts.forEach(t=>{
+    let ox,oy;
+    t.onmousedown=e=>{
+      ox=e.clientX-(t.getAttribute("x")||0);
+      oy=e.clientY-(t.getAttribute("y")||0);
+      const move=e2=>{
+        t.setAttribute("x",e2.clientX-ox);
+        t.setAttribute("y",e2.clientY-oy);
+      };
+      const up=()=>{window.removeEventListener("mousemove",move); window.removeEventListener("mouseup",up);}
+      window.addEventListener("mousemove",move);
+      window.addEventListener("mouseup",up);
+    };
+  });
 }
 
-/******** DRAG ********/
-
-function drag(el){
-
-let x,y;
-
-el.onmousedown=e=>{
-
-x=e.clientX-(el.getAttribute("x")||0);
-
-y=e.clientY-(el.getAttribute("y")||0);
-
-window.onmousemove=e2=>{
-
-el.setAttribute("x",e2.clientX-x);
-
-el.setAttribute("y",e2.clientY-y);
-
-};
-
-window.onmouseup=()=>{
-
-window.onmousemove=null;
-
-};
-
-};
-
+// UNDO
+function undo(){
+  if(history.length>1){
+    history.pop();
+    svgBox.innerHTML=history[history.length-1];
+    buildEditor();
+    prepareTexts();
+  }
 }
 
-/******** SAVE ********/
-
+// SAVE
 async function save(){
-
-let original=document.querySelector("#svg svg");
-
-let clone=original.cloneNode(true);
-
-let data=clone.outerHTML;
-
-await fetch(worker,{
-
-method:"POST",
-
-headers:{
-
-"Content-Type":"application/json",
-
-"x-api-key":key
-
-},
-
-body:JSON.stringify({
-
-svg:data,
-
-slide:index
-
-})
-
-});
-
-setTimeout(load,1500);
-
-alert("saved");
-
+  const svg=svgBox.querySelector("svg").outerHTML;
+  try{
+    await fetch(workerURL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey},
+      body:JSON.stringify({svg:svg,slide:slideIndex})
+    });
+    alert("SVG kaydedildi! Editor live olarak güncel.");
+    // history güncelle
+    history=[svg];
+  }catch(e){alert("Save error: "+e);}
 }
 
-/******** RELOAD ********/
-
-function reload(){
-
-load();
-
-}
-
-/******** COLOR HELPER ********/
-
+// HELPERS
 function getColor(t){
-
-let c=t.getAttribute("fill");
-
-if(c) return c;
-
-let s=getComputedStyle(t).fill;
-
-let r=s.match(/\d+/g);
-
-if(!r) return "#000000";
-
-return "#"+((1<<24)+(r[0]<<16)+(r[1]<<8)+(+r[2])).toString(16).slice(1);
-
+  let c=t.getAttribute("fill");
+  if(c) return c;
+  const s=getComputedStyle(t).fill;
+  const r=s.match(/\d+/g);
+  if(!r) return "#000000";
+  return "#"+((1<<24)+(r[0]<<16)+(r[1]<<8)+(+r[2])).toString(16).slice(1);
 }
 
-/******** START ********/
-
-load();
-
+// INIT
+loadSlide();
 </script>
 
 </body>
-
 </html>
