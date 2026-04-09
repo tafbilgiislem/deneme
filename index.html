@@ -2,26 +2,23 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pro SVG Slide Editor</title>
+<title>Pro SVG Editor - Drag & Drop + Multi-user</title>
 <style>
-body { font-family: Arial; margin: 0; padding: 20px; background: #f5f5f5; }
-#container { display: flex; flex-wrap: wrap; gap: 20px; }
-#svg-container { flex: 3; border:1px solid #ccc; position: relative; width: 100%; max-width: 1920px; aspect-ratio: 16/9; background: #fff; }
-#svg-container svg { width:100%; height:100%; }
-#editor { flex: 1; min-width: 300px; background:#fff; padding:10px; border:1px solid #ccc; max-height: 80vh; overflow-y: auto; }
-input, select { display:block; width: 100%; margin:5px 0; padding:5px; box-sizing:border-box; }
+body { font-family: Arial; margin:0; padding:20px; background:#f5f5f5;}
+#container { display:flex; flex-wrap:wrap; gap:20px;}
+#svg-container { flex:3; border:1px solid #ccc; position:relative; width:100%; max-width:1920px; aspect-ratio:16/9; background:#fff; }
+#svg-container svg { width:100%; height:100%; cursor:move; }
+#editor { flex:1; min-width:300px; background:#fff; padding:10px; border:1px solid #ccc; max-height:80vh; overflow-y:auto; }
+input, select { display:block; width:100%; margin:5px 0; padding:5px; box-sizing:border-box; }
 button { margin:5px 0; padding:5px 10px; cursor:pointer; }
-.slide-selector { margin-bottom:10px; }
 </style>
 </head>
 <body>
-
-<h2>Pro SVG Slide Editor</h2>
+<h2>Pro SVG Editor</h2>
 
 <div id="container">
   <div id="svg-container"></div>
   <div id="editor">
-    <select id="slideSelector" class="slide-selector"></select>
     <div id="textInputs"></div>
     <button onclick="undo()">Undo</button>
     <button onclick="save()">Save</button>
@@ -29,40 +26,41 @@ button { margin:5px 0; padding:5px 10px; cursor:pointer; }
 </div>
 
 <script>
-const workerURL="https://githubtoken.tafbilgiislem.workers.dev/";   // Worker URL
-const apiKey="SVG_SECRET_12345";      // Worker API Key
-const slides = [
-  "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
-  "SVG_URL2",
-  "SVG_URL3"
-];  // Slide SVG URL list
+// CONFIG
+const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
+const apiKey="SVG_SECRET_12345";    // Worker API Key
+const svgURL="https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg";       // Initial SVG
 
-let currentSlideIndex=0;
 let lastState="";
 let textMap=[];
 
-// Slide Selector
-const slideSelector=document.getElementById("slideSelector");
-slides.forEach((s,i)=>{ 
-  const opt=document.createElement("option"); 
-  opt.value=i; 
-  opt.text="Slide "+(i+1); 
-  slideSelector.appendChild(opt);
-});
-slideSelector.addEventListener("change", ()=>{ currentSlideIndex=parseInt(slideSelector.value); loadSlide(currentSlideIndex); });
-
-// Load Slide
-async function loadSlide(index){
-  const url=slides[index]+"?"+Date.now();
-  const res=await fetch(url);
+// Load SVG
+async function loadSVG(){
+  const res=await fetch(svgURL+"?"+Date.now());
   const svgText=await res.text();
+  updateSVGFromRemote(svgText);
+}
+
+// Update SVG DOM and editor
+function updateSVGFromRemote(newSVG){
   const container=document.getElementById("svg-container");
-  container.innerHTML=svgText;
+  container.innerHTML=newSVG;
   const svg=container.querySelector("svg");
+  if(!svg) return;
   svg.setAttribute("viewBox","0 0 1920 1080");
   svg.setAttribute("preserveAspectRatio","xMidYMid meet");
-  lastState=svg.outerHTML;
+
+  // Enable drag
+  const texts=svg.querySelectorAll("text");
+  texts.forEach(t=>{
+    enableDrag(t);
+  });
+
+  // Build editor inputs
   buildEditor();
+
+  // Save current state for undo
+  lastState=svg.outerHTML;
 }
 
 // Build Editor Inputs
@@ -83,30 +81,13 @@ function buildEditor(){
     input.placeholder="Text "+(i+1);
     input.addEventListener("input", ()=>{ updateText(id,input.value); });
     wrapper.appendChild(input);
-    
-    // Font size
-    const fontInput=document.createElement("input");
-    fontInput.type="number";
-    fontInput.value=parseInt(window.getComputedStyle(t).fontSize);
-    fontInput.placeholder="Font size";
-    fontInput.addEventListener("input", ()=>{ t.setAttribute("font-size", fontInput.value); });
-    wrapper.appendChild(fontInput);
-    
-    // Color
-    const colorInput=document.createElement("input");
-    colorInput.type="color";
-    const c=window.getComputedStyle(t).fill||"#000000";
-    colorInput.value=rgbToHex(c);
-    colorInput.addEventListener("input", ()=>{ t.setAttribute("fill", colorInput.value); });
-    wrapper.appendChild(colorInput);
-
-    editor.appendChild(wrapper);
     textMap.push(input);
+    editor.appendChild(wrapper);
     i++;
   });
 }
 
-// Live update
+// Live update text
 function updateText(id,value){
   const svg=document.querySelector("#svg-container svg");
   const t=svg.getElementById(id);
@@ -114,14 +95,45 @@ function updateText(id,value){
   lastState=svg.outerHTML;
 }
 
+// Enable drag for text
+function enableDrag(t){
+  let offsetX=0, offsetY=0;
+  t.addEventListener("mousedown", e=>{
+    offsetX=e.clientX - parseFloat(t.getAttribute("x")||0);
+    offsetY=e.clientY - parseFloat(t.getAttribute("y")||0);
+    const move=(ev)=>{
+      t.setAttribute("x", ev.clientX - offsetX);
+      t.setAttribute("y", ev.clientY - offsetY);
+      syncEditorInputs();
+    }
+    const up=()=>{
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    }
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  });
+}
+
+// Sync editor inputs with SVG DOM
+function syncEditorInputs(){
+  const svg=document.querySelector("#svg-container svg");
+  textMap.forEach(input=>{
+    const t=svg.getElementById(input.dataset.target);
+    if(t) input.value=t.textContent;
+  });
+}
+
 // Undo
 function undo(){
   const svg=document.querySelector("#svg-container svg");
   svg.outerHTML=lastState;
+  const texts=svg.querySelectorAll("text");
+  texts.forEach(t=>enableDrag(t));
   buildEditor();
 }
 
-// Save
+// Save via Worker
 async function save(){
   const svg=document.querySelector("#svg-container svg");
   const data=svg.outerHTML;
@@ -139,16 +151,8 @@ async function save(){
   }catch(e){ alert("Save error: "+e); }
 }
 
-// Load first slide
-loadSlide(currentSlideIndex);
-
-// Helpers
-function rgbToHex(rgb){
-  if(!rgb) return "#000000";
-  const result=rgb.match(/\d+/g);
-  if(!result) return "#000000";
-  return "#"+((1 << 24) + (parseInt(result[0]) <<16) + (parseInt(result[1])<<8) + parseInt(result[2])).toString(16).slice(1);
-}
+// Load initial
+loadSVG();
 
 </script>
 </body>
