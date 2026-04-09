@@ -2,14 +2,10 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Login + SVG Slide Editor</title>
+<title>SVG Slide Editor Instant Save</title>
 <style>
-body{font-family:Arial;background:#eee;padding:20px;margin:0;}
-#loginWrap,#editorWrap{max-width:1920px;margin:auto;}
-#loginWrap{display:flex;flex-direction:column;width:300px;}
-#loginWrap input{margin:5px 0;padding:5px;}
-#loginWrap button{padding:5px;margin-top:5px;}
-#wrap{display:flex;gap:20px;margin-top:20px;}
+body{font-family:Arial;background:#eee;padding:20px;}
+#wrap{display:flex;gap:20px;}
 #svgBox{flex:3;background:white;border:1px solid #ccc;aspect-ratio:16/9;}
 #svgBox svg{width:100%;height:100%;}
 #panel{flex:1;background:white;padding:10px;border:1px solid #ccc;max-height:85vh;overflow:auto;}
@@ -20,19 +16,10 @@ button{width:100%;margin-top:6px;}
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginWrap">
-<h2>Login</h2>
-<input id="user" placeholder="Kullanıcı Adı">
-<input id="pass" type="password" placeholder="Şifre">
-<button onclick="login()">Giriş</button>
-<p id="msg" style="color:red"></p>
-</div>
-
-<!-- EDITOR -->
-<div id="editorWrap" style="display:none">
 <h2>SVG Slide Editor Instant Save</h2>
+
 <select id="slideSelect"></select>
+
 <div id="wrap">
   <div id="svgBox"></div>
   <div id="panel">
@@ -41,11 +28,10 @@ button{width:100%;margin-top:6px;}
     <button onclick="undo()">UNDO</button>
   </div>
 </div>
-</div>
 
 <script>
 // CONFIG
-const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL (Cloudflare)
+const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
 const apiKey="SVG_SECRET_12345";    // Worker API Key
 const slides=[
 "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg",
@@ -53,50 +39,18 @@ const slides=[
 "https://raw.githubusercontent.com/tafbilgiislem/ypm/refs/heads/main/slayt.svg"
 ];
 
-// LOGIN
-const credentials = [
-  {user:"admin",pass:"1234"},
-  {user:"editor",pass:"5678"}
-];
-function login(){
-  const u=document.getElementById("user").value;
-  const p=document.getElementById("pass").value;
-  const ok=credentials.find(c=>c.user===u && c.pass===p);
-  if(ok){
-    sessionStorage.setItem("token",btoa(u+":"+p));
-    document.getElementById("loginWrap").style.display="none";
-    document.getElementById("editorWrap").style.display="block";
-    initEditor();
-  }else{
-    document.getElementById("msg").textContent="Kullanıcı adı veya şifre yanlış!";
-  }
-}
-
-// AUTO LOGIN
-window.onload=()=>{
-  const t=sessionStorage.getItem("token");
-  if(t){
-    document.getElementById("loginWrap").style.display="none";
-    document.getElementById("editorWrap").style.display="block";
-    initEditor();
-  }
-};
-
-// EDITOR STATE
+// STATE
 let slideIndex=0;
 let history=[];
 
-// INIT EDITOR
-function initEditor(){
-  slides.forEach((s,i)=>{
-    const opt=document.createElement("option");
-    opt.value=i;
-    opt.text="Slide "+(i+1);
-    slideSelect.appendChild(opt);
-  });
-  slideSelect.onchange=()=>{slideIndex=slideSelect.value; loadSlide();};
-  loadSlide();
-}
+// SLIDE SELECT
+slides.forEach((s,i)=>{
+  const opt=document.createElement("option");
+  opt.value=i;
+  opt.text="Slide "+(i+1);
+  slideSelect.appendChild(opt);
+});
+slideSelect.onchange=()=>{slideIndex=slideSelect.value; loadSlide();};
 
 // LOAD SLIDE
 async function loadSlide(){
@@ -120,7 +74,7 @@ function buildEditor(){
     if(!t.id) t.id="txt"+i;
     const div=document.createElement("div");
 
-    // Text
+    // Text content
     const input=document.createElement("input");
     input.value=t.textContent;
     input.oninput=()=>{ t.textContent=input.value; };
@@ -173,27 +127,22 @@ function undo(){
   }
 }
 
-// SAVE (POST fix)
+// SAVE
 async function save(){
-  const token=sessionStorage.getItem("token");
-  if(!token){alert("Yetkisiz!"); return;}
   const svg=svgBox.querySelector("svg").outerHTML;
   try{
     await fetch(workerURL,{
-      method:"POST",                 // 🔑 POST method
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key":apiKey,
-        "x-user-token":token
-      },
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey},
       body:JSON.stringify({svg:svg,slide:slideIndex})
     });
     alert("SVG kaydedildi! Editor live olarak güncel.");
+    // history güncelle
     history=[svg];
   }catch(e){alert("Save error: "+e);}
 }
 
-// COLOR HELPER
+// HELPERS
 function getColor(t){
   let c=t.getAttribute("fill");
   if(c) return c;
@@ -202,6 +151,10 @@ function getColor(t){
   if(!r) return "#000000";
   return "#"+((1<<24)+(r[0]<<16)+(r[1]<<8)+(+r[2])).toString(16).slice(1);
 }
+
+// INIT
+loadSlide();
 </script>
+
 </body>
 </html>
