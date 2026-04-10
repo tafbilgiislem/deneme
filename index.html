@@ -2,29 +2,51 @@
 
 const workerURL = "https://githubtoken.tafbilgiislem.workers.dev/";
 const wsURL = "wss://githubtoken.tafbilgiislem.workers.dev/ws";
+const apiKey = "SVG_SECRET_12345";
 
 let ws;
 let slideIndex = 0;
 
-// ================= CONNECT WS =================
+const svgBox = document.getElementById("svgBox");
+const editor = document.getElementById("editor");
+
+// ================= SAFE INIT =================
+window.onload = () => {
+  try {
+    connectWS();
+    loadSlide();
+  } catch(e){
+    console.error("INIT ERROR:", e);
+  }
+};
+
+// ================= WS =================
 function connectWS(){
-  ws = new WebSocket(wsURL);
+  try {
+    ws = new WebSocket(wsURL);
 
-  ws.onmessage = (e)=>{
-    const data = JSON.parse(e.data);
+    ws.onmessage = (e)=>{
+      try {
+        const data = JSON.parse(e.data);
 
-    if(data.type === "update"){
-      if(data.slide == slideIndex){
-        applySVG(data.svg);
+        if(data.type === "update" && data.slide == slideIndex){
+          applySVG(data.svg);
+        }
+      } catch(err){
+        console.error("WS parse error", err);
       }
-    }
-  };
+    };
+
+  } catch(e){
+    console.error("WS ERROR:", e);
+  }
 }
 
-connectWS();
-
-// ================= APPLY SVG =================
+// ================= APPLY =================
 function applySVG(svgText){
+
+  if(!svgBox || !editor) return;
+
   svgBox.innerHTML = "";
   editor.innerHTML = "";
 
@@ -36,36 +58,50 @@ function applySVG(svgText){
 
 // ================= LOAD =================
 async function loadSlide(){
+  try {
 
-  const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
-    cache: "no-store",
-    headers: { "x-api-key": apiKey }
-  });
+    const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
+      cache: "no-store",
+      headers: { "x-api-key": apiKey }
+    });
 
-  const svg = await res.text();
-  applySVG(svg);
+    const svg = await res.text();
+    applySVG(svg);
+
+  } catch(e){
+    console.error("LOAD ERROR:", e);
+  }
 }
 
-// ================= SAVE + BROADCAST =================
+// ================= SAVE =================
 async function save(){
 
-  const svg = svgBox.querySelector("svg").outerHTML;
+  try {
 
-  await fetch(workerURL, {
-    method: "POST",
-    headers:{
-      "Content-Type":"application/json",
-      "x-api-key":apiKey
-    },
-    body: JSON.stringify({ svg, slide: slideIndex })
-  });
+    const svg = svgBox.querySelector("svg")?.outerHTML;
 
-  // 🔥 REALTIME BROADCAST
-  ws.send(JSON.stringify({
-    type: "update",
-    slide: slideIndex,
-    svg
-  }));
+    if(!svg) return;
+
+    await fetch(workerURL, {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key":apiKey
+      },
+      body: JSON.stringify({ svg, slide: slideIndex })
+    });
+
+    if(ws && ws.readyState === 1){
+      ws.send(JSON.stringify({
+        type: "update",
+        slide: slideIndex,
+        svg
+      }));
+    }
+
+  } catch(e){
+    console.error("SAVE ERROR:", e);
+  }
 }
 
 </script>
