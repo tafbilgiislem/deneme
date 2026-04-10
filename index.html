@@ -1,107 +1,87 @@
 <script>
 
+window.addEventListener("DOMContentLoaded", () => {
+
 const workerURL = "https://githubtoken.tafbilgiislem.workers.dev/";
-const wsURL = "wss://githubtoken.tafbilgiislem.workers.dev/";
 const apiKey = "SVG_SECRET_12345";
 
-let ws;
 let slideIndex = 0;
+let history = [];
 
 const svgBox = document.getElementById("svgBox");
 const editor = document.getElementById("editor");
 
-// ================= SAFE INIT =================
-window.onload = () => {
-  try {
-    connectWS();
-    loadSlide();
-  } catch(e){
-    console.error("INIT ERROR:", e);
-  }
-};
+// ================= LOAD =================
+async function loadSlide(){
 
-// ================= WS =================
-function connectWS(){
-  try {
-    ws = new WebSocket(wsURL);
+  const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
+    cache: "no-store",
+    headers: { "x-api-key": apiKey }
+  });
 
-    ws.onmessage = (e)=>{
-      try {
-        const data = JSON.parse(e.data);
-
-        if(data.type === "update" && data.slide == slideIndex){
-          applySVG(data.svg);
-        }
-      } catch(err){
-        console.error("WS parse error", err);
-      }
-    };
-
-  } catch(e){
-    console.error("WS ERROR:", e);
-  }
-}
-
-// ================= APPLY =================
-function applySVG(svgText){
-
-  if(!svgBox || !editor) return;
-
-  svgBox.innerHTML = "";
-  editor.innerHTML = "";
+  const svgText = await res.text();
 
   svgBox.innerHTML = svgText;
 
+  const svg = svgBox.querySelector("svg");
+  if(!svg) return;
+
+  svg.setAttribute("viewBox","0 0 1920 1080");
+
   buildEditor();
   prepareTexts();
+
+  history = [svg.outerHTML];
 }
 
-// ================= LOAD =================
-async function loadSlide(){
-  try {
+// ================= EDITOR =================
+function buildEditor(){
+  editor.innerHTML = "";
 
-    const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
-      cache: "no-store",
-      headers: { "x-api-key": apiKey }
-    });
+  const texts = svgBox.querySelectorAll("text");
 
-    const svg = await res.text();
-    applySVG(svg);
+  texts.forEach((t,i)=>{
 
-  } catch(e){
-    console.error("LOAD ERROR:", e);
-  }
+    const input = document.createElement("input");
+    input.value = t.textContent;
+    input.oninput = () => t.textContent = input.value;
+
+    const size = document.createElement("input");
+    size.type = "number";
+    size.value = parseInt(t.getAttribute("font-size") || 16);
+    size.oninput = () => t.setAttribute("font-size", size.value);
+
+    const color = document.createElement("input");
+    color.type = "color";
+    color.value = "#000000";
+    color.oninput = () => t.setAttribute("fill", color.value);
+
+    editor.appendChild(input);
+    editor.appendChild(size);
+    editor.appendChild(color);
+  });
 }
 
 // ================= SAVE =================
 async function save(){
 
-  try {
+  const svg = svgBox.querySelector("svg")?.outerHTML;
+  if(!svg) return;
 
-    const svg = svgBox.querySelector("svg")?.outerHTML;
+  await fetch(workerURL, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key":apiKey
+    },
+    body: JSON.stringify({ svg, slide: slideIndex })
+  });
 
-    if(!svg) return;
-
-    await fetch(workerURL, {
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-api-key":apiKey
-      },
-      body: JSON.stringify({ svg, slide: slideIndex })
-    });
-
-    if(ws && ws.readyState === 1){
-      ws.send(JSON.stringify({
-        type: "update",
-        slide: slideIndex,
-        svg
-      }));
-    }
-
-  } catch(e){
-    console.error("SAVE ERROR:", e);
-  }
+  setTimeout(loadSlide, 300);
 }
 
+// START
+loadSlide();
+
+});
 </script>
