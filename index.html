@@ -1,184 +1,71 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>SVG Live Editor FIXED</title>
-
-<style>
-body{font-family:Arial;background:#eee;padding:20px;}
-#wrap{display:flex;gap:20px;}
-#svgBox{flex:3;background:white;border:1px solid #ccc;aspect-ratio:16/9;}
-#svgBox svg{width:100%;height:100%;}
-#panel{flex:1;background:white;padding:10px;border:1px solid #ccc;max-height:85vh;overflow:auto;}
-input{width:100%;margin:5px 0;}
-button{width:100%;margin-top:6px;}
-</style>
-</head>
-
-<body>
-
-<h2>SVG Editor FIX</h2>
-
-<select id="slideSelect"></select>
-
-<div id="wrap">
-  <div id="svgBox"></div>
-
-  <div id="panel">
-    <div id="editor"></div>
-    <button onclick="save()">SAVE</button>
-    <button onclick="undo()">UNDO</button>
-  </div>
-</div>
-
 <script>
 
 const workerURL = "https://githubtoken.tafbilgiislem.workers.dev/";
-const apiKey = "SVG_SECRET_12345";
+const wsURL = "wss://githubtoken.tafbilgiislem.workers.dev/ws";
 
+let ws;
 let slideIndex = 0;
-let history = [];
 
-// INIT SELECT
-[0,1].forEach((_,i)=>{
-  const opt=document.createElement("option");
-  opt.value=i;
-  opt.text="Slide "+(i+1);
-  slideSelect.appendChild(opt);
-});
+// ================= CONNECT WS =================
+function connectWS(){
+  ws = new WebSocket(wsURL);
 
-slideSelect.onchange = ()=>{
-  slideIndex = slideSelect.value;
-  loadSlide();
-};
+  ws.onmessage = (e)=>{
+    const data = JSON.parse(e.data);
+
+    if(data.type === "update"){
+      if(data.slide == slideIndex){
+        applySVG(data.svg);
+      }
+    }
+  };
+}
+
+connectWS();
+
+// ================= APPLY SVG =================
+function applySVG(svgText){
+  svgBox.innerHTML = "";
+  editor.innerHTML = "";
+
+  svgBox.innerHTML = svgText;
+
+  buildEditor();
+  prepareTexts();
+}
 
 // ================= LOAD =================
 async function loadSlide(){
-
-  // HARD RESET DOM (IMPORTANT FIX)
-  svgBox.replaceChildren();
-  editor.innerHTML = "";
 
   const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
     cache: "no-store",
     headers: { "x-api-key": apiKey }
   });
 
-  const svgText = await res.text();
-
-  svgBox.innerHTML = svgText;
-
-  const svg = svgBox.querySelector("svg");
-  if(!svg) return;
-
-  svg.setAttribute("viewBox","0 0 1920 1080");
-
-  buildEditor();
-  prepareTexts();
-
-  history = [svg.outerHTML];
+  const svg = await res.text();
+  applySVG(svg);
 }
 
-// ================= EDITOR =================
-function buildEditor(){
-  editor.innerHTML = "";
-
-  const texts = svgBox.querySelectorAll("text");
-
-  texts.forEach((t,i)=>{
-
-    if(!t.id) t.id = "txt"+i;
-
-    const wrap = document.createElement("div");
-
-    const input = document.createElement("input");
-    input.value = t.textContent;
-    input.oninput = ()=> t.textContent = input.value;
-
-    const size = document.createElement("input");
-    size.type = "number";
-    size.value = parseInt(t.getAttribute("font-size") || 16);
-    size.oninput = ()=> t.setAttribute("font-size", size.value);
-
-    const color = document.createElement("input");
-    color.type = "color";
-    color.value = "#000000";
-    color.oninput = ()=> t.setAttribute("fill", color.value);
-
-    wrap.appendChild(input);
-    wrap.appendChild(size);
-    wrap.appendChild(color);
-
-    editor.appendChild(wrap);
-  });
-}
-
-// ================= DRAG =================
-function prepareTexts(){
-  const texts = svgBox.querySelectorAll("text");
-
-  texts.forEach(t=>{
-    let ox, oy;
-
-    t.onmousedown = e=>{
-      ox = e.clientX - (parseFloat(t.getAttribute("x")) || 0);
-      oy = e.clientY - (parseFloat(t.getAttribute("y")) || 0);
-
-      const move = e2=>{
-        t.setAttribute("x", e2.clientX - ox);
-        t.setAttribute("y", e2.clientY - oy);
-      };
-
-      const up = ()=>{
-        window.removeEventListener("mousemove", move);
-        window.removeEventListener("mouseup", up);
-      };
-
-      window.addEventListener("mousemove", move);
-      window.addEventListener("mouseup", up);
-    };
-  });
-}
-
-// ================= UNDO =================
-function undo(){
-  if(history.length > 1){
-    history.pop();
-    svgBox.innerHTML = history[history.length-1];
-    buildEditor();
-    prepareTexts();
-  }
-}
-
-// ================= SAVE =================
+// ================= SAVE + BROADCAST =================
 async function save(){
 
   const svg = svgBox.querySelector("svg").outerHTML;
 
   await fetch(workerURL, {
-    method:"POST",
+    method: "POST",
     headers:{
       "Content-Type":"application/json",
       "x-api-key":apiKey
     },
-    body: JSON.stringify({
-      svg,
-      slide: slideIndex
-    })
+    body: JSON.stringify({ svg, slide: slideIndex })
   });
 
-  // IMPORTANT FIX → refresh safe reload
-  history = [svg];
-
-  setTimeout(()=>{
-    loadSlide();
-  }, 300);
+  // 🔥 REALTIME BROADCAST
+  ws.send(JSON.stringify({
+    type: "update",
+    slide: slideIndex,
+    svg
+  }));
 }
 
-// START
-loadSlide();
-
 </script>
-
-</body>
-</html>
