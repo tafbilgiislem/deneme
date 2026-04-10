@@ -2,7 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>SVG Slide Editor Instant Save</title>
+<title>SVG Slide Editor</title>
+
 <style>
 body{font-family:Arial;background:#eee;padding:20px;}
 #wrap{display:flex;gap:20px;}
@@ -11,17 +12,18 @@ body{font-family:Arial;background:#eee;padding:20px;}
 #panel{flex:1;background:white;padding:10px;border:1px solid #ccc;max-height:85vh;overflow:auto;}
 input{width:100%;margin:5px 0;}
 button{width:100%;margin-top:6px;}
-.activeText{stroke:red;stroke-width:1;}
 </style>
 </head>
+
 <body>
 
-<h2>SVG Slide Editor Instant Save</h2>
+<h2>SVG Slide Editor</h2>
 
 <select id="slideSelect"></select>
 
 <div id="wrap">
   <div id="svgBox"></div>
+
   <div id="panel">
     <div id="editor"></div>
     <button onclick="save()">SAVE</button>
@@ -30,97 +32,108 @@ button{width:100%;margin-top:6px;}
 </div>
 
 <script>
-// CONFIG
-const workerURL="https://githubtoken.tafbilgiislem.workers.dev/"; // Worker URL
-const apiKey="SVG_SECRET_12345";    // Worker API Key
-const slides=[
-"https://raw.githubusercontent.com/tafbilgiislem/ypm/main/slayt.svg",
-"https://raw.githubusercontent.com/tafbilgiislem/ypm/main/info.svg"
-];
 
-// STATE
-let slideIndex=0;
-let history=[];
+const workerURL = "https://YOUR-WORKER.workers.dev/";
+const apiKey = "SVG_SECRET_12345";
 
-// SLIDE SELECT
+const slides = [0,1];
+
+let slideIndex = 0;
+let history = [];
+
+// SELECT
 slides.forEach((s,i)=>{
-  const opt=document.createElement("option");
-  opt.value=i;
-  opt.text="Slide "+(i+1);
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.text = "Slide " + (i+1);
   slideSelect.appendChild(opt);
 });
-slideSelect.onchange=()=>{slideIndex=slideSelect.value; loadSlide();};
+
+slideSelect.onchange = () => {
+  slideIndex = slideSelect.value;
+  loadSlide();
+};
 
 // LOAD SLIDE
 async function loadSlide(){
-  const url=slides[slideIndex]+"?v="+Date.now();
-  const res=await fetch(url);
-  const svgText=await res.text();
-  svgBox.innerHTML=svgText;
-  const s=svgBox.querySelector("svg");
+  const res = await fetch(workerURL + "?slide=" + slideIndex + "&t=" + Date.now(), {
+    headers: { "x-api-key": apiKey }
+  });
+
+  const svgText = await res.text();
+  svgBox.innerHTML = svgText;
+
+  const s = svgBox.querySelector("svg");
   if(!s) return;
+
   s.setAttribute("viewBox","0 0 1920 1080");
+
   buildEditor();
   prepareTexts();
-  history=[s.outerHTML];
+
+  history = [s.outerHTML];
 }
 
-// BUILD PANEL
+// EDITOR
 function buildEditor(){
-  editor.innerHTML="";
-  const texts=svgBox.querySelectorAll("text");
+  editor.innerHTML = "";
+
+  const texts = svgBox.querySelectorAll("text");
+
   texts.forEach((t,i)=>{
-    if(!t.id) t.id="txt"+i;
-    const div=document.createElement("div");
+    if(!t.id) t.id = "txt"+i;
 
-    // Text content
-    const input=document.createElement("input");
-    input.value=t.textContent;
-    input.oninput=()=>{ t.textContent=input.value; };
-    div.appendChild(input);
+    const input = document.createElement("input");
+    input.value = t.textContent;
+    input.oninput = () => t.textContent = input.value;
+    editor.appendChild(input);
 
-    // Font size
-    const size=document.createElement("input");
-    size.type="number";
-    size.value=parseInt(getComputedStyle(t).fontSize);
-    size.oninput=()=>{ t.setAttribute("font-size",size.value); t.style.fontSize=size.value+"px"; };
-    div.appendChild(size);
+    const size = document.createElement("input");
+    size.type = "number";
+    size.value = parseInt(getComputedStyle(t).fontSize || 16);
+    size.oninput = () => t.setAttribute("font-size", size.value);
+    editor.appendChild(size);
 
-    // Color
-    const color=document.createElement("input");
-    color.type="color";
-    color.value=getColor(t);
-    color.oninput=()=>{ t.setAttribute("fill",color.value); t.style.fill=color.value; };
-    div.appendChild(color);
-
-    editor.appendChild(div);
+    const color = document.createElement("input");
+    color.type = "color";
+    color.value = "#000000";
+    color.oninput = () => t.setAttribute("fill", color.value);
+    editor.appendChild(color);
   });
 }
 
 // DRAG
 function prepareTexts(){
-  const texts=svgBox.querySelectorAll("text");
+  const texts = svgBox.querySelectorAll("text");
+
   texts.forEach(t=>{
-    let ox,oy;
-    t.onmousedown=e=>{
-      ox=e.clientX-(t.getAttribute("x")||0);
-      oy=e.clientY-(t.getAttribute("y")||0);
-      const move=e2=>{
-        t.setAttribute("x",e2.clientX-ox);
-        t.setAttribute("y",e2.clientY-oy);
+    let ox, oy;
+
+    t.onmousedown = e=>{
+      ox = e.clientX - (parseFloat(t.getAttribute("x")) || 0);
+      oy = e.clientY - (parseFloat(t.getAttribute("y")) || 0);
+
+      const move = e2=>{
+        t.setAttribute("x", e2.clientX - ox);
+        t.setAttribute("y", e2.clientY - oy);
       };
-      const up=()=>{window.removeEventListener("mousemove",move); window.removeEventListener("mouseup",up);}
-      window.addEventListener("mousemove",move);
-      window.addEventListener("mouseup",up);
+
+      const up = ()=>{
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
     };
   });
 }
 
 // UNDO
 function undo(){
-  if(history.length>1){
+  if(history.length > 1){
     history.pop();
-    svgBox.innerHTML=history[history.length-1];
+    svgBox.innerHTML = history[history.length-1];
     buildEditor();
     prepareTexts();
   }
@@ -128,31 +141,24 @@ function undo(){
 
 // SAVE
 async function save(){
-  const svg=svgBox.querySelector("svg").outerHTML;
-  try{
-    await fetch(workerURL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","x-api-key":apiKey},
-      body:JSON.stringify({svg:svg,slide:slideIndex})
-    });
-    alert("SVG kaydedildi! Editor live olarak güncel.");
-    // history güncelle
-    history=[svg];
-  }catch(e){alert("Save error: "+e);}
-}
+  const svg = svgBox.querySelector("svg").outerHTML;
 
-// HELPERS
-function getColor(t){
-  let c=t.getAttribute("fill");
-  if(c) return c;
-  const s=getComputedStyle(t).fill;
-  const r=s.match(/\d+/g);
-  if(!r) return "#000000";
-  return "#"+((1<<24)+(r[0]<<16)+(r[1]<<8)+(+r[2])).toString(16).slice(1);
+  await fetch(workerURL,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key":apiKey
+    },
+    body: JSON.stringify({ svg, slide: slideIndex })
+  });
+
+  history = [svg];
+  await loadSlide(); // 🔥 anında güncelle
 }
 
 // INIT
 loadSlide();
+
 </script>
 
 </body>
