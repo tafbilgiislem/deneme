@@ -511,7 +511,16 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         } else { fillVal = window.getD(el, 'solid-color') || '#000000'; }
         
         el.setAttribute("fill", fillVal); if(el.tagName !== 'path') el.style.fill = fillVal;
-        if(el.tagName === 'g' || el.tagName === 'svg') { el.querySelectorAll('path, circle, rect, polygon').forEach(child => { child.style.fill = fillVal; child.setAttribute('fill', fillVal); }); }
+        if(el.tagName === 'g' || el.tagName === 'svg') { 
+    el.querySelectorAll('path, circle, rect, polygon, ellipse, line').forEach(child => { 
+        if (child.tagName === 'line') {
+            // Çizgilerin "fill" (dolgu) değeri yoktur, bu yüzden renk "stroke" (çizgi) değerine uygulanır
+            child.style.stroke = fillVal; child.setAttribute('stroke', fillVal);
+        } else {
+            child.style.fill = fillVal; child.setAttribute('fill', fillVal); 
+        }
+    }); 
+}
     };
 
     window.autoFitText = function(el) { 
