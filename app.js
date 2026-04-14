@@ -1057,3 +1057,141 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             window.saveState(); window.setupLayers(); window.updateEditorUI(selectedEl); window.renderEditor(); 
         } catch(err) { alert('Hata: Lütfen geçerli bir SVG kodu girin.'); }
     };
+// ==========================================
+// MİNİ HARİTA (MINIMAP) AKILLI MOTORU
+// ==========================================
+
+window.updateMinimap = function() {
+    const svg = document.querySelector('#canvas-inner svg');
+    const mmContent = document.getElementById('minimap-content');
+    const mmContainer = document.getElementById('minimap-container');
+    if(!svg || !mmContent || !mmContainer) return;
+
+    // Tuvalin boyutlarını al
+    const vb = svg.viewBox.baseVal;
+    const w = vb.width || 1920;
+    const h = vb.height || 1080;
+    
+    // Konteyner yüksekliğini orantılı ayarla (Genişlik sabit 200px)
+    const containerW = 200;
+    const containerH = (h / w) * containerW;
+    mmContainer.style.height = containerH + 'px';
+
+    // SVG'yi klonla ve gereksizleri temizle
+    const clone = svg.cloneNode(true);
+    const guides = clone.querySelector('#guides-group'); if (guides) guides.remove();
+
+    // Klonu kapsayıcıya tam oturacak şekilde ayarla
+    clone.setAttribute('width', '100%');
+    clone.setAttribute('height', '100%');
+    clone.style.width = '100%';
+    clone.style.height = '100%';
+    
+    mmContent.innerHTML = '';
+    mmContent.appendChild(clone);
+
+    window.updateMinimapViewport();
+};
+
+window.updateMinimapViewport = function() {
+    const svg = document.querySelector('#canvas-inner svg');
+    const mmContainer = document.getElementById('minimap-container');
+    const mmViewport = document.getElementById('minimap-viewport');
+    const mainView = document.getElementById('main-view');
+    if(!svg || !mmContainer || !mmViewport || !mainView) return;
+
+    // Ana pencerenin köşe koordinatları
+    const mainRect = mainView.getBoundingClientRect();
+    const ptTL = svg.createSVGPoint(); const ptBR = svg.createSVGPoint();
+    ptTL.x = mainRect.left; ptTL.y = mainRect.top;
+    ptBR.x = mainRect.right; ptBR.y = mainRect.bottom;
+
+    const ctm = svg.getScreenCTM(); if(!ctm) return;
+    const invCTM = ctm.inverse();
+
+    // Ekrandaki pikselleri gerçek SVG içi koordinatlara çevir (Nokta atışı isabet)
+    const svgTL = ptTL.matrixTransform(invCTM);
+    const svgBR = ptBR.matrixTransform(invCTM);
+
+    const visibleW = svgBR.x - svgTL.x;
+    const visibleH = svgBR.y - svgTL.y;
+
+    // Minimap oranlarını hesapla
+    const vb = svg.viewBox.baseVal;
+    const canvasW = vb.width || 1920; const canvasH = vb.height || 1080;
+    const scaleX = mmContainer.clientWidth / canvasW;
+    const scaleY = mmContainer.clientHeight / canvasH;
+
+    // Kırmızı görünüm kutusunu (Viewport) güncelle
+    mmViewport.style.left = (svgTL.x * scaleX) + 'px';
+    mmViewport.style.top = (svgTL.y * scaleY) + 'px';
+    mmViewport.style.width = (visibleW * scaleX) + 'px';
+    mmViewport.style.height = (visibleH * scaleY) + 'px';
+};
+
+// --- MEVCUT SİSTEME MÜDAHALE ETMEDEN ARAYA GİRME (HOOK) ---
+
+// 1. Her kayıtta (nesne eklendiğinde/silindiğinde) haritayı güncelle
+const originalSaveState = window.saveState;
+window.saveState = function() {
+    if(originalSaveState) originalSaveState();
+    setTimeout(() => window.updateMinimap(), 50); 
+};
+
+// 2. Her Yakınlaştırma/Uzaklaştırma veya Pan (Kaydırma) işleminde kırmızı kutuyu güncelle
+const originalApplyZoom = window.applyZoom;
+window.applyZoom = function() {
+    if(originalApplyZoom) originalApplyZoom();
+    window.updateMinimapViewport();
+};
+
+// 3. Tarayıcı penceresi boyutu değişirse kutuyu ayarla
+window.addEventListener('resize', window.updateMinimapViewport);
+
+// --- HARİTAYA TIKLAYARAK VEYA SÜRÜKLEYEREK GEZİNME (PAN) ---
+const initMinimapInteraction = () => {
+    const mmContainer = document.getElementById('minimap-container');
+    if(!mmContainer) { setTimeout(initMinimapInteraction, 500); return; }
+    
+    let isDraggingMinimap = false;
+
+    const panFromMinimap = (e) => {
+        const svg = document.querySelector('#canvas-inner svg'); if (!svg) return;
+        const rect = mmContainer.getBoundingClientRect();
+        
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+
+        const targetSvgX = (x / rect.width) * (svg.viewBox.baseVal.width || 1920);
+        const targetSvgY = (y / rect.height) * (svg.viewBox.baseVal.height || 1080);
+
+        const pt = svg.createSVGPoint();
+        pt.x = targetSvgX; pt.y = targetSvgY;
+        const screenPt = pt.matrixTransform(svg.getScreenCTM());
+
+        const mainRect = document.getElementById('main-view').getBoundingClientRect();
+        const centerScreenX = mainRect.left + mainRect.width / 2;
+        const centerScreenY = mainRect.top + mainRect.height / 2;
+
+        panX += (centerScreenX - screenPt.x) / currentZoom;
+        panY += (centerScreenY - screenPt.y) / currentZoom;
+
+        window.applyZoom();
+        window.syncRulerTransform();
+    };
+
+    mmContainer.addEventListener('pointerdown', (e) => {
+        isDraggingMinimap = true;
+        panFromMinimap(e);
+        mmContainer.setPointerCapture(e.pointerId);
+    });
+    mmContainer.addEventListener('pointermove', (e) => { if (isDraggingMinimap) panFromMinimap(e); });
+    
+    const stopDrag = (e) => {
+        isDraggingMinimap = false;
+        try{ mmContainer.releasePointerCapture(e.pointerId); }catch(err){}
+    };
+    mmContainer.addEventListener('pointerup', stopDrag);
+    mmContainer.addEventListener('pointercancel', stopDrag);
+};
+initMinimapInteraction();
