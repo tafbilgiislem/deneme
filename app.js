@@ -18,12 +18,76 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
 
     let selectedEl = null, resizingEl = null, rotatingEl = null, radiusingEl = null, activeHandle = null, offset = {x:0, y:0}, startP = {x:0, y:0}, startData = {}, isModified = false;
     let clipboard = null, currentZoom = 1, panX = 0, panY = 0, historyStack = [], historyIndex = -1;
+    
+    // YENİ: Çoklu Seçim Değişkenleri
     let isDrawingMode = false, isDrawing = false, currentPath = null, pathData = "", isDraggingGuide = false, currentGuide = null, isDraggingElement = false, isSpacePressed = false, isPanning = false, panStart = {x:0, y:0}, panOffsetStart = {x:0, y:0};
+    let isSelecting = false, selectionRect = null, selectionStart = {x:0, y:0};
 
     window.updateEditorUI = null;
 
-    // Google Fontları (Dışarıdan sürüklenen fontlar da buraya eklenecek)
     const googleFonts = [{ name: "Varsayılan", val: "sans-serif" }, { name: "Roboto", val: "'Roboto', sans-serif" }, { name: "Montserrat", val: "'Montserrat', sans-serif" }, { name: "Poppins", val: "'Poppins', sans-serif" }, { name: "Open Sans", val: "'Open Sans', sans-serif" }, { name: "Lato", val: "'Lato', sans-serif" }];
+
+    // YENİ: İkon Kütüphanesi Verileri (Lucide Tabanlı Temel İkonlar)
+    const libraryIcons = [
+        { name: "Yıldız", svg: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>` },
+        { name: "Kalp", svg: `<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>` },
+        { name: "Güç", svg: `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>` },
+        { name: "Bulut", svg: `<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>` },
+        { name: "Kalkan", svg: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>` },
+        { name: "Kamera", svg: `<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle>` },
+        { name: "Zil", svg: `<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>` },
+        { name: "Ayar", svg: `<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>` },
+        { name: "Kilit", svg: `<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>` },
+        { name: "Kullanıcı", svg: `<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>` }
+    ];
+
+    // İkon Kütüphanesini Ekrana Bas
+    const renderIconLibrary = () => {
+        const grid = document.getElementById('icon-library-grid');
+        if(!grid) return;
+        grid.innerHTML = libraryIcons.map((icon, index) => `
+            <div class="icon-item" title="${icon.name}" onclick="window.addShapeFromLibrary(${index})">
+                <svg viewBox="0 0 24 24">${icon.svg}</svg>
+            </div>
+        `).join('');
+    };
+    setTimeout(renderIconLibrary, 100);
+
+    window.addShapeFromLibrary = function(index) {
+        const iconData = libraryIcons[index];
+        const svg = document.querySelector('#canvas-inner svg'); if(!svg) return; 
+        const center = window.getCanvasCenter();
+        
+        const shapeContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        shapeContainer.id = "shp_" + Date.now(); 
+        shapeContainer.setAttribute("class", "duzenlenebilir"); 
+        shapeContainer.setAttribute("x", center.cx - 50); shapeContainer.setAttribute("y", center.cy - 50); 
+        shapeContainer.setAttribute("width", 100); shapeContainer.setAttribute("height", 100); 
+        shapeContainer.setAttribute("viewBox", "0 0 24 24"); // İkonların orijinal ViewBox'ı
+        shapeContainer.setAttribute("preserveAspectRatio", "none"); 
+        shapeContainer.style.overflow = "visible"; 
+        
+        window.setD(shapeContainer, 'solid-color', "#10b981"); 
+        
+        shapeContainer.innerHTML = iconData.svg;
+        
+        // İçerdeki tüm yolları şekillendir
+        shapeContainer.querySelectorAll('path, polygon, circle, rect, line').forEach(innerEl => {
+            innerEl.setAttribute("vector-effect", "non-scaling-stroke");
+            innerEl.style.pointerEvents = "none";
+            innerEl.setAttribute("stroke", "#10b981");
+            innerEl.setAttribute("stroke-width", "2");
+        });
+        
+        const clickCatcher = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        clickCatcher.setAttribute("width", "24"); clickCatcher.setAttribute("height", "24");
+        clickCatcher.setAttribute("fill", "transparent"); clickCatcher.setAttribute("class", "click-catcher"); 
+        clickCatcher.setAttribute("stroke", "none"); 
+        shapeContainer.insertBefore(clickCatcher, shapeContainer.firstChild);
+        
+        svg.appendChild(shapeContainer); selectedEl = shapeContainer; 
+        window.saveState(); window.setupLayers(); window.updateEditorUI(shapeContainer); window.renderEditor();
+    };
 
     window.getCanvasCenter = function() {
         const svg = document.querySelector('#canvas-inner svg');
@@ -121,7 +185,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             const res = await fetch(WORKER_URL, { 
                 method: "PUT", 
                 headers: { "X-Auth-Key": SESSION_PASS, "X-File-Name": fileName }, 
-                body: JSON.stringify({message: "Pro Studio Ultimate Fix V40", content: b64, sha: SHA_KEY}) 
+                body: JSON.stringify({message: "Pro Studio Ultimate Fix", content: b64, sha: SHA_KEY}) 
             });
             
             if(res.ok) { 
@@ -222,9 +286,69 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         
         shapeContainer.appendChild(innerEl);
         
-        svg.appendChild(shapeContainer); 
-        selectedEl = shapeContainer; 
+        svg.appendChild(shapeContainer); selectedEl = shapeContainer; 
         window.saveState(); window.setupLayers(); window.updateEditorUI(shapeContainer); window.renderEditor();
+    };
+
+    // YENİ: GRUPLAMA FONKSİYONLARI (MULTI-SELECT İÇİN)
+    window.groupElements = function(elements) {
+        if(!elements || elements.length < 2) return;
+        let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+        elements.forEach(el => {
+            let b = {x:0, y:0, width:0, height:0};
+            try { 
+                b = el.getBBox(); 
+                if (el.tagName === 'svg') {
+                    b = { x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, width: parseFloat(el.getAttribute("width")) || b.width, height: parseFloat(el.getAttribute("height")) || b.height };
+                }
+            } catch(e) {}
+            if(b.x < minX) minX = b.x;
+            if(b.y < minY) minY = b.y;
+            if(b.x+b.width > maxX) maxX = b.x+b.width;
+            if(b.y+b.height > maxY) maxY = b.y+b.height;
+        });
+        
+        const grp = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        grp.id = "grp_" + Date.now();
+        grp.classList.add("duzenlenebilir");
+        grp.setAttribute("x", minX); grp.setAttribute("y", minY);
+        grp.setAttribute("width", maxX - minX); grp.setAttribute("height", maxY - minY);
+        grp.setAttribute("viewBox", `${minX} ${minY} ${maxX-minX} ${maxY-minY}`);
+        grp.style.overflow = "visible";
+        window.setD(grp, 'is-group', "true");
+
+        elements.forEach(el => {
+            el.classList.remove("duzenlenebilir"); 
+            el.style.pointerEvents = "none";
+            grp.appendChild(el);
+        });
+        
+        const clickCatcher = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        clickCatcher.setAttribute("x", minX); clickCatcher.setAttribute("y", minY);
+        clickCatcher.setAttribute("width", maxX - minX); clickCatcher.setAttribute("height", maxY - minY);
+        clickCatcher.setAttribute("fill", "transparent"); clickCatcher.setAttribute("class", "click-catcher"); 
+        clickCatcher.setAttribute("stroke", "none"); 
+        grp.insertBefore(clickCatcher, grp.firstChild);
+
+        document.querySelector('#canvas-inner svg').appendChild(grp);
+        selectedEl = grp;
+        window.saveState(); window.setupLayers(); window.updateUI(grp); window.renderEditor();
+    };
+
+    window.ungroupElement = function(id) {
+        const grp = document.getElementById(id);
+        if(!grp || window.getD(grp, 'is-group') !== "true") return;
+        const svg = document.querySelector('#canvas-inner svg');
+        
+        Array.from(grp.children).forEach(c => {
+            if (c.tagName === 'rect' && c.classList.contains('click-catcher')) return;
+            c.classList.add("duzenlenebilir");
+            c.style.pointerEvents = "all";
+            svg.appendChild(c);
+        });
+        grp.remove();
+        selectedEl = null;
+        window.saveState(); window.setupLayers(); window.renderEditor();
     };
 
     window.changeProp = function(id, prop, val, elUI) {
@@ -310,14 +434,13 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         }; reader.readAsDataURL(file);
     };
 
-    // YEREL FONT (TTF, OTF, WOFF) SÜRÜKLE BIRAK SİSTEMİ
     window.handleFontFile = function(file) {
         if (!file || (!file.name.endsWith('.ttf') && !file.name.endsWith('.otf') && !file.name.endsWith('.woff'))) return;
         const reader = new FileReader();
         reader.onload = (ev) => {
             const base64Font = ev.target.result;
             const fontName = 'Font_' + Date.now();
-            const displayFontName = file.name.replace(/\.[^/.]+$/, ""); // Uzantıyı gizle
+            const displayFontName = file.name.replace(/\.[^/.]+$/, ""); 
             
             const svg = document.querySelector('#canvas-inner svg');
             let defs = svg.querySelector('defs');
@@ -326,13 +449,9 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             let style = defs.querySelector('style#custom-fonts');
             if (!style) { style = document.createElementNS("http://www.w3.org/2000/svg", "style"); style.id = "custom-fonts"; defs.appendChild(style); }
             
-            // Fontu doğrudan SVG'nin içine göm (Base64)
             style.textContent += `@font-face { font-family: '${fontName}'; src: url('${base64Font}'); }\n`;
-
-            // Listeye ekle
             googleFonts.push({ name: "🔤 " + displayFontName, val: `'${fontName}'` });
-
-            // Fontu göstermek için ekrana yeni bir metin fırlat
+            
             window.addNewText();
             if(selectedEl) {
                 selectedEl.setAttribute('font-family', `'${fontName}'`);
@@ -340,20 +459,15 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 window.setD(selectedEl, 'raw-text', displayFontName);
                 window.applyTextCurve(selectedEl);
             }
-            window.saveState();
-            window.renderProperties();
-            alert("Font başarıyla projeye gömüldü! Artık PDF ve SVG çıktılarında da sorunsuz çalışacak.");
+            window.saveState(); window.renderProperties();
+            alert("Font başarıyla projeye gömüldü!");
         };
         reader.readAsDataURL(file);
     };
     
     document.getElementById('img-in').onchange = (e) => { 
         const file = e.target.files[0];
-        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) {
-            window.handleFontFile(file);
-        } else {
-            window.handleImageFile(file); 
-        }
+        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) { window.handleFontFile(file); } else { window.handleImageFile(file); }
         e.target.value = ""; 
     };
     
@@ -363,11 +477,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     mainView.addEventListener('drop', (e) => { 
         e.preventDefault(); mainView.style.opacity = '1'; 
         const file = e.dataTransfer.files[0];
-        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) {
-            window.handleFontFile(file);
-        } else {
-            window.handleImageFile(file); 
-        }
+        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) { window.handleFontFile(file); } else { window.handleImageFile(file); }
     });
 
     window.closeCtx = function() { document.getElementById('context-menu').style.display = 'none'; };
@@ -378,6 +488,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             e.preventDefault(); selectedEl = el; isDraggingElement = false; window.updateEditorUI(el); window.renderEditor();
             const ctxMenu = document.getElementById('context-menu');
             document.getElementById('ctx-lock-text').innerText = window.getD(el, 'locked') === "true" ? "🔓 Kilidi Aç" : "🔒 Kilitle";
+            document.getElementById('ctx-ungroup').style.display = window.getD(el, 'is-group') === "true" ? "block" : "none";
             ctxMenu.style.display = 'block';
             let x = e.clientX; let y = e.clientY;
             if(x + 180 > window.innerWidth) x = window.innerWidth - 180;
@@ -386,11 +497,57 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         }
     });
 
+    // YENİ: ÇİFT TIKLAYARAK METİN DÜZENLEME (Inline Text Editor)
+    document.getElementById('svg-wrapper').addEventListener('dblclick', (e) => {
+        let target = e.target;
+        if (target.tagName === 'textPath' || target.tagName === 'tspan') target = target.closest('text');
+        
+        if (target && target.tagName === 'text' && target.classList.contains('duzenlenebilir')) {
+            const bbox = target.getBoundingClientRect();
+            const input = document.getElementById('inline-text-editor');
+            
+            input.style.display = 'block';
+            input.style.left = bbox.left + 'px';
+            input.style.top = bbox.top + 'px';
+            input.style.width = Math.max(150, bbox.width + 20) + 'px';
+            input.style.height = Math.max(50, bbox.height + 20) + 'px';
+            
+            const currentSize = parseFloat(window.getD(target, 'base-font-size')) || 80;
+            input.style.fontSize = (currentSize * currentZoom) + 'px';
+            input.style.fontFamily = target.getAttribute('font-family') || 'sans-serif';
+            input.style.transform = target.style.transform;
+            
+            input.value = window.getD(target, 'raw-text') || target.textContent;
+            input.dataset.targetId = target.id;
+            
+            input.focus();
+            input.select();
+        }
+    });
+
+    const closeInlineEditor = () => {
+        const input = document.getElementById('inline-text-editor');
+        if (input.style.display === 'none') return;
+        const targetId = input.dataset.targetId;
+        if (targetId) {
+            const val = input.value;
+            window.changeSetting(targetId, 'raw-text', val);
+            window.saveState(); window.renderProperties();
+        }
+        input.style.display = 'none';
+        input.dataset.targetId = '';
+    };
+
+    document.getElementById('inline-text-editor').addEventListener('blur', closeInlineEditor);
+    document.getElementById('inline-text-editor').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); closeInlineEditor(); }
+        if (e.key === 'Escape') { document.getElementById('inline-text-editor').style.display = 'none'; }
+    });
+
     window.hideGuides = function(hide) { const gg = document.getElementById('guides-group'); if(gg) gg.style.display = hide ? 'none' : 'block'; };
     window.clearGuides = function() { const gg = document.getElementById('guides-group'); if(gg) { gg.innerHTML = ''; window.saveState(); } };
     window.openExport = function(type) { document.getElementById('export-format').value = type; document.getElementById('export-modal').style.display = 'flex'; };
     
-    // PDF İNDİRME SİSTEMİ ENTEGRE EDİLDİ
     window.executeExport = function() {
         const format = document.getElementById('export-format').value; const scale = parseInt(document.getElementById('export-scale').value); const scope = document.getElementById('export-scope').value;
         const svg = document.querySelector('#canvas-inner svg'); if(!svg) return;
@@ -415,7 +572,6 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 if (format === 'png') {
                     const a = document.createElement("a"); a.download = "tasarim.png"; a.href = canvas.toDataURL("image/png"); a.click(); 
                 } else if (format === 'pdf') {
-                    // PDF Çıktısı Al (Sayfa Yönünü Otomatik Ayarla)
                     const orientation = targetW > targetH ? 'l' : 'p';
                     const pdf = new window.jspdf.jsPDF(orientation, 'pt', [targetW, targetH]);
                     pdf.addImage(canvas.toDataURL("image/png", 1.0), 'PNG', 0, 0, targetW, targetH);
@@ -685,6 +841,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             }
 
             if (target.classList.contains('guide-line')) { isDraggingGuide = true; currentGuide = target; try { wrapper.setPointerCapture(e.pointerId); } catch(err){} e.preventDefault(); e.stopPropagation(); return; }
+            
             if (target.classList.contains('handle')) {
                 const el = document.getElementById(target.dataset.id); if (!el || window.getD(el, 'locked') === "true") return;
                 
@@ -704,20 +861,46 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 window.updateUI(selectedEl); window.renderEditor();
                 if(window.getD(selectedEl, 'locked') !== "true") { try { wrapper.setPointerCapture(e.pointerId); } catch(err){} }
             } else { 
-                if(!e.target.closest('#sidebar')) { selectedEl = null; ctrl.innerHTML = ""; window.renderEditor(); }
+                // YENİ: Boşluğa tıklandıysa Çoklu Seçim Kutusunu Başlat
+                if(!e.target.closest('#sidebar')) { 
+                    selectedEl = null; ctrl.innerHTML = ""; window.renderEditor(); 
+                    isSelecting = true;
+                    selectionStart = p;
+                    selectionRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    selectionRect.setAttribute("fill", "rgba(59, 130, 246, 0.15)");
+                    selectionRect.setAttribute("stroke", "#3b82f6");
+                    selectionRect.setAttribute("stroke-width", "2");
+                    selectionRect.setAttribute("stroke-dasharray", "5,5");
+                    ctrl.appendChild(selectionRect);
+                    try { wrapper.setPointerCapture(e.pointerId); } catch(err){}
+                }
             }
         };
 
         window.onpointermove = (e) => {
             if (isPanning) { panX = panOffsetStart.x + ((e.clientX - panStart.x) / currentZoom); panY = panOffsetStart.y + ((e.clientY - panStart.y) / currentZoom); window.applyZoom(); window.syncRulerTransform(); return; }
             const p = getCoords(e);
+            
+            // YENİ: Çoklu Seçim Kutusunu Güncelle
+            if (isSelecting && selectionRect) {
+                const w = Math.abs(p.x - selectionStart.x);
+                const h = Math.abs(p.y - selectionStart.y);
+                const x = Math.min(p.x, selectionStart.x);
+                const y = Math.min(p.y, selectionStart.y);
+                selectionRect.setAttribute("x", x);
+                selectionRect.setAttribute("y", y);
+                selectionRect.setAttribute("width", w);
+                selectionRect.setAttribute("height", h);
+                return;
+            }
+
             if (isDrawing && currentPath) { pathData += ` L ${p.x} ${p.y}`; currentPath.setAttribute("d", pathData); return; }
             if (isDraggingGuide && currentGuide) { if(window.getD(currentGuide, 'type') === 'h') { currentGuide.setAttribute('y1', p.y); currentGuide.setAttribute('y2', p.y); } else { currentGuide.setAttribute('x1', p.x); currentGuide.setAttribute('x2', p.x); } return; }
             if (!selectedEl && !resizingEl && !rotatingEl && !radiusingEl) return;
             if (selectedEl && window.getD(selectedEl, 'locked') === "true" && !resizingEl && !rotatingEl && !radiusingEl) return; 
             if(isDraggingElement || resizingEl || rotatingEl || radiusingEl) e.preventDefault(); 
             const dx = p.x - startP.x; const dy = p.y - startP.y;
-            let snapX = null, snapY = null; const snapTolerance = 15; 
+            let snapX = null, snapY = null; const snapTolerance = 25; // Snap hassasiyeti artırıldı!
             
             let w = 1920, h = 1080;
             if (svg.hasAttribute('viewBox')) { const vb = svg.getAttribute('viewBox').split(/\s+|,/); if(vb.length >= 4) { w = parseFloat(vb[2]); h = parseFloat(vb[3]); } }
@@ -754,7 +937,12 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             }
             else if (selectedEl && isDraggingElement) {
                 isModified = true; let newX = p.x - offset.x, newY = p.y - offset.y;
-                let bbox = {width:0, height:0}; try { bbox = selectedEl.getBBox(); }catch(e){}
+                let bbox = {width:0, height:0}; 
+                try { 
+                    bbox = selectedEl.getBBox(); 
+                    if (selectedEl.tagName === 'svg') { bbox = { x: parseFloat(selectedEl.getAttribute("x")) || 0, y: parseFloat(selectedEl.getAttribute("y")) || 0, width: parseFloat(selectedEl.getAttribute("width")) || bbox.width, height: parseFloat(selectedEl.getAttribute("height")) || bbox.height }; }
+                } catch(e){}
+
                 const isTxt = selectedEl.tagName === 'text';
                 const elCx = isTxt ? newX : newX + bbox.width / 2; const elCy = isTxt ? newY : newY + bbox.height / 2;
                 const elLeft = isTxt ? newX - bbox.width/2 : newX; const elRight = isTxt ? newX + bbox.width/2 : newX + bbox.width;
@@ -765,10 +953,18 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 
                 document.querySelectorAll('.guide-line').forEach(g => { if (window.getD(g, 'type') === 'h') { const gy = parseFloat(g.getAttribute('y1')); if (Math.abs(elCy - gy) < snapTolerance) { snapY = gy; newY = isTxt ? gy : gy - bbox.height / 2; } else if (Math.abs(elTop - gy) < snapTolerance) { snapY = gy; newY = isTxt ? gy + bbox.height/2 : gy; } else if (Math.abs(elBottom - gy) < snapTolerance) { snapY = gy; newY = isTxt ? gy - bbox.height/2 : gy - bbox.height; } } else { const gx = parseFloat(g.getAttribute('x1')); if (Math.abs(elCx - gx) < snapTolerance) { snapX = gx; newX = isTxt ? gx : gx - bbox.width / 2; } else if (Math.abs(elLeft - gx) < snapTolerance) { snapX = gx; newX = isTxt ? gx + bbox.width/2 : gx; } else if (Math.abs(elRight - gx) < snapTolerance) { snapX = gx; newX = isTxt ? gx - bbox.width/2 : gx - bbox.width; } } });
 
+                // YENİ: Diğer şekillerin KÖŞELERİNE ve MERKEZLERİNE güçlü hizalama
                 Array.from(document.querySelectorAll('.duzenlenebilir')).filter(e => e !== selectedEl && window.getD(e, 'locked') !== "true").forEach(other => {
-                    let oBBox = {x:0, y:0, width:0, height:0}; try { oBBox = other.getBBox(); } catch(e){ return; }
+                    let oBBox = {x:0, y:0, width:0, height:0}; 
+                    try { 
+                        oBBox = other.getBBox(); 
+                        if (other.tagName === 'svg') oBBox = { x: parseFloat(other.getAttribute("x"))||0, y: parseFloat(other.getAttribute("y"))||0, width: parseFloat(other.getAttribute("width"))||oBBox.width, height: parseFloat(other.getAttribute("height"))||oBBox.height };
+                    } catch(e){ return; }
+
                     const oIsTxt = other.tagName === 'text';
-                    const ox = parseFloat(other.getAttribute('x'))||0; const oy = parseFloat(other.getAttribute('y'))||0;
+                    const ox = oIsTxt ? parseFloat(other.getAttribute('x'))||0 : oBBox.x; 
+                    const oy = oIsTxt ? parseFloat(other.getAttribute('y'))||0 : oBBox.y;
+                    
                     const oLeft = oIsTxt ? ox - oBBox.width/2 : ox; const oRight = oIsTxt ? ox + oBBox.width/2 : ox + oBBox.width;
                     const oTop = oIsTxt ? oy - oBBox.height/2 : oy; const oBottom = oIsTxt ? oy + oBBox.height/2 : oy + oBBox.height;
                     const oCx = oLeft + oBBox.width/2; const oCy = oTop + oBBox.height/2;
@@ -791,6 +987,36 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
 
         const release = (e) => { 
             try { wrapper.releasePointerCapture(e.pointerId); } catch(err){} 
+            
+            // YENİ: Çoklu Seçimi Tamamla ve Gruba Çevir
+            if (isSelecting) {
+                isSelecting = false;
+                if(!selectionRect) return;
+                const selBox = selectionRect.getBBox();
+                selectionRect.remove(); selectionRect = null;
+                
+                let toGroup = [];
+                document.querySelectorAll('#canvas-inner > svg > .duzenlenebilir').forEach(el => {
+                    if(el.id==='control-layer' || el.id==='canvas-background') return;
+                    try {
+                        let b = el.getBBox();
+                        if (el.tagName === 'svg') b = { x: parseFloat(el.getAttribute("x"))||0, y: parseFloat(el.getAttribute("y"))||0, width: parseFloat(el.getAttribute("width"))||b.width, height: parseFloat(el.getAttribute("height"))||b.height };
+                        
+                        // Kutunun içinde kalıp kalmadığını kontrol et
+                        if (b.x >= selBox.x && b.y >= selBox.y && (b.x+b.width) <= (selBox.x+selBox.width) && (b.y+b.height) <= (selBox.y+selBox.height)) {
+                            toGroup.push(el);
+                        }
+                    } catch(err){}
+                });
+
+                if (toGroup.length > 1) {
+                    window.groupElements(toGroup); // Otomatik grup yap!
+                } else if (toGroup.length === 1) {
+                    selectedEl = toGroup[0]; window.updateUI(selectedEl); window.renderEditor();
+                }
+                return;
+            }
+
             isDraggingElement = false; 
             if (isPanning) { isPanning = false; document.getElementById('svg-wrapper').classList.remove('panning'); return; }
             if (isDrawing) { isDrawing = false; selectedEl = currentPath; currentPath = null; isDrawingMode = false; document.getElementById('btn-draw').classList.remove('active'); document.getElementById('svg-wrapper').classList.remove('draw-mode'); window.saveState(); window.renderEditor(); window.updateUI(selectedEl); return; }
@@ -849,53 +1075,32 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     
     window.updateEditorUI = window.updateUI; 
 
-    // KATMAN SÜRÜKLE BIRAK SİSTEMİ İÇİN GÜNCELLENDİ
-    window.renderEditor = function() { 
-        window.renderLayers(); 
-        if(selectedEl) window.renderProperties(); 
-        else document.getElementById('editor-fields').innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">👆 Düzenlemek için sahneden veya katmanlardan bir nesne seçin.</div>`;
-    };
-
-    let draggedLayerId = null; // Sürüklenen katmanın ID'si
+    let draggedLayerId = null;
     window.renderLayers = function() {
         const list = document.getElementById('layers-list'); list.innerHTML = "";
-        const elements = Array.from(document.querySelectorAll('.duzenlenebilir')).reverse();
+        const elements = Array.from(document.querySelectorAll('#canvas-inner > svg > .duzenlenebilir')).reverse();
         document.getElementById('status-count').innerText = `Nesne Sayısı: ${elements.length}`;
         
         elements.forEach((el) => {
             const isLocked = window.getD(el, 'locked') === "true"; const isActive = selectedEl === el;
             let typeName = el.tagName.toUpperCase(); 
-            if (typeName === 'RECT') typeName = 'ŞEKİL'; if (typeName === 'G' || typeName === 'SVG') typeName = 'İKON'; 
+            if (typeName === 'RECT') typeName = 'ŞEKİL'; if (typeName === 'G' || typeName === 'SVG') typeName = 'İKON / ŞEKİL'; 
             if (typeName === 'PATH') typeName = 'ÇİZİM'; if (typeName === 'IMAGE') typeName = 'RESİM';
+            if (window.getD(el, 'is-group') === "true") typeName = '📦 GRUP';
             if (el.tagName === 'text') { let txt = window.getD(el, 'raw-text') || el.textContent; typeName = `T: ${txt.substring(0,10)}${txt.length>10?'...':''}`; }
 
             const item = document.createElement('div'); item.className = `layer-item ${isActive ? 'active' : ''}`;
             
-            // Sürükle Bırak Mantığı Eklendi
             item.draggable = true;
-            item.ondragstart = (e) => { 
-                draggedLayerId = el.id; 
-                e.dataTransfer.effectAllowed = 'move'; 
-                e.target.style.opacity = '0.5';
-            };
+            item.ondragstart = (e) => { draggedLayerId = el.id; e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.5'; };
             item.ondragend = (e) => { e.target.style.opacity = '1'; };
-            item.ondragover = (e) => { 
-                e.preventDefault(); 
-                e.currentTarget.classList.add('drag-over'); 
-            };
+            item.ondragover = (e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
             item.ondragleave = (e) => { e.currentTarget.classList.remove('drag-over'); };
             item.ondrop = (e) => {
-                e.preventDefault(); 
-                e.currentTarget.classList.remove('drag-over');
+                e.preventDefault(); e.currentTarget.classList.remove('drag-over');
                 if(!draggedLayerId || draggedLayerId === el.id) return;
-                
                 const draggedEl = document.getElementById(draggedLayerId);
-                if(draggedEl && el) {
-                    // Katmanı listedeki sıraya göre SVG içinde yeniden konumlandır
-                    el.parentNode.insertBefore(draggedEl, el.nextSibling);
-                    window.saveState();
-                    window.renderEditor();
-                }
+                if(draggedEl && el) { el.parentNode.insertBefore(draggedEl, el.nextSibling); window.saveState(); window.renderEditor(); }
                 draggedLayerId = null;
             };
 
@@ -915,13 +1120,15 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
 
     window.renderProperties = function() {
         const f = document.getElementById('editor-fields');
-        if (!selectedEl || !selectedEl.tagName) { f.innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">👆 Düzenlemek için sahneden veya katmanlardan bir nesne seçin.</div>`; return; }
+        if (!selectedEl || !selectedEl.tagName) { f.innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">👆 Düzenlemek için sahneden, katmanlardan bir nesne seçin veya <br><br><b>Çoklu seçim yapmak için fareyle boşlukta sürükleyin.</b></div>`; return; }
         
         try {
             const el = selectedEl; const id = el.id; const tag = el.tagName.toLowerCase();
             const isLocked = window.getD(el, 'locked') === "true"; const isPath = tag === 'path'; const isText = tag === 'text'; const isShape = tag === 'rect'; const isImage = tag === 'image'; const isIcon = tag === 'svg' || tag === 'g';
+            const isGroup = window.getD(el, 'is-group') === "true";
             
-            let typeName = tag.toUpperCase(); if (isShape) typeName = 'ŞEKİL'; if (isIcon) typeName = 'İKON'; if (isPath) typeName = 'ÇİZİM'; if (isImage) typeName = 'RESİM'; if (isText) typeName = 'METİN';
+            let typeName = tag.toUpperCase(); if (isShape) typeName = 'ŞEKİL'; if (isIcon) typeName = 'İKON / ŞEKİL'; if (isPath) typeName = 'ÇİZİM'; if (isImage) typeName = 'RESİM'; if (isText) typeName = 'METİN';
+            if(isGroup) typeName = '📦 GRUP';
 
             let sections = [];
 
@@ -932,7 +1139,9 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 </div>
                 <div class="action-row" style="margin-bottom:15px;">
                     <button class="action-btn" onclick="window.toggleLock('${id}')" style="background:${isLocked?'var(--error)':'#334155'}">${isLocked ? '🔓 KİLİDİ AÇ' : '🔒 KİLİTLE'}</button>
-                    <button class="action-btn special" onclick="window.cloneElement('${id}')" ${isLocked ? 'disabled':''}>⧉ KOPYALA</button>
+                    ${isGroup 
+                        ? `<button class="action-btn special" onclick="window.ungroupElement('${id}')" style="background:#f59e0b; color:black;">📦 GRUBU ÇÖZ</button>` 
+                        : `<button class="action-btn special" onclick="window.cloneElement('${id}')" ${isLocked ? 'disabled':''}>⧉ KOPYALA</button>`}
                 </div>
             `;
             sections.push(headerHtml);
@@ -949,13 +1158,18 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
 
             if (isText) {
                 const rawText = (window.getD(el, 'raw-text') || el.textContent).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-                let contentHtml = `<input type="text" value="${rawText}" oninput="window.changeSetting('${id}', 'raw-text', this.value);" onchange="window.saveState()" placeholder="Metni girin...">`;
+                let contentHtml = `<input type="text" value="${rawText}" oninput="window.changeSetting('${id}', 'raw-text', this.value);" onchange="window.saveState()" placeholder="Metni girin..."><div style="font-size:10px; color:#64748b; margin-top:5px;">İpucu: Yazıyı tuval üzerinde çift tıklayarak da düzenleyebilirsiniz.</div>`;
                 sections.push(window.createPropertySection("Metin İçeriği", contentHtml));
             }
 
             if (!isPath) {
-                let bbox = {x:0, y:0, width:0, height:0}; try { bbox = el.getBBox(); } catch(e){}
-                const x = Math.round(parseFloat(el.getAttribute("x")) || bbox.x || 0); const y = Math.round(parseFloat(el.getAttribute("y")) || bbox.y || 0);
+                let bbox = {x:0, y:0, width:0, height:0}; 
+                try { 
+                    bbox = el.getBBox(); 
+                    if (tag === 'svg') bbox = { x: parseFloat(el.getAttribute("x"))||0, y: parseFloat(el.getAttribute("y"))||0, width: parseFloat(el.getAttribute("width"))||bbox.width, height: parseFloat(el.getAttribute("height"))||bbox.height };
+                } catch(e){}
+                
+                const x = Math.round(bbox.x || 0); const y = Math.round(bbox.y || 0);
                 
                 let w = 0, h = 0;
                 
@@ -1036,7 +1250,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 sections.push(window.createPropertySection("Yazı Tipi & Biçimlendirme", fontHtml));
             }
 
-            if (isShape || isImage) {
+            if (isShape || isImage || (!isGroup && isIcon)) {
                 const rx = parseFloat(window.getD(el, 'rx')) || 0; const maskShape = window.getD(el, 'mask-shape') || 'none';
                 let bbox = {width:0, height:0}; try { bbox = el.getBBox(); }catch(e){} const maxR = Math.min(bbox.width, bbox.height) / 2;
                 let formHtml = `<div class="label-text" style="margin-bottom:5px;">MASKELEME ŞEKLİ</div><select class="font-select" style="margin-bottom:15px;" onchange="window.changeSetting('${id}', 'mask-shape', this.value); window.saveState();"><option value="none" ${maskShape === 'none' ? 'selected' : ''}>Yok (Düz)</option><option value="squircle" ${maskShape === 'squircle' ? 'selected' : ''}>Oval Kare (Squircle)</option><option value="circle" ${maskShape === 'circle' ? 'selected' : ''}>Daire</option><option value="triangle" ${maskShape === 'triangle' ? 'selected' : ''}>Üçgen</option><option value="star" ${maskShape === 'star' ? 'selected' : ''}>Yıldız</option></select>
@@ -1048,8 +1262,11 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 sections.push(window.createPropertySection("Form & Maskeleme", formHtml));
             }
 
-            if (!isImage) {
-                const fillType = window.getD(el, 'fill-type') || 'solid'; const col1 = window.getD(el, 'color1') || '#10b981'; const col2 = window.getD(el, 'color2') || '#3b82f6'; const solidCol = window.getD(el, 'solid-color') || (el.getAttribute('fill') === 'none' ? el.getAttribute('stroke') : el.getAttribute('fill')) || "#ffffff";
+            if (!isImage && !isGroup) {
+                const fillType = window.getD(el, 'fill-type') || 'solid'; const col1 = window.getD(el, 'color1') || '#10b981'; const col2 = window.getD(el, 'color2') || '#3b82f6'; 
+                let solidCol = window.getD(el, 'solid-color') || "#10b981";
+                if(el.tagName==='rect' && el.getAttribute('fill')) solidCol = el.getAttribute('fill');
+                
                 let swatchHtml = `<div class="label-text" style="margin-top:15px; margin-bottom:8px;">PROJE RENKLERİ</div><div class="swatch-container">` + recentColors.map(c => `<div class="color-swatch" style="background:${c}" onclick="window.applyRecentColor('${id}', '${c}')" title="${c}"></div>`).join('') + `</div>`;
                 let fillHtml = `<div class="label-text" style="margin-bottom:5px;">DOLGU TİPİ</div><select class="font-select" style="margin-bottom:15px;" onchange="window.changeSetting('${id}', 'fill-type', this.value); window.renderProperties(); window.saveState();"><option value="solid" ${fillType === 'solid' ? 'selected' : ''}>Düz Renk</option><option value="gradient" ${fillType === 'gradient' ? 'selected' : ''}>Renk Geçişi (Gradient)</option></select>`;
                 if (fillType === 'solid') { fillHtml += `<div class="label-text" style="margin-bottom:5px;">${isPath?'ÇİZGİ':'İÇ'} RENK</div><div style="display:flex; gap:10px; align-items:center;"><input type="color" value="${safeColor(solidCol)}" oninput="window.changeSetting('${id}', 'solid-color', this.value); this.nextElementSibling.nextElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();" style="width:45px; height:45px; cursor:pointer; border:none; background:none; border-radius:8px;"><button class="action-btn" style="flex:0 0 45px; padding:12px; background:#334155; font-size:16px;" onclick="window.pickColor('${id}', 'solidColor', 'fill')" title="Göz Damlası">💧</button><input type="text" value="${safeColor(solidCol)}" style="flex:1;" oninput="window.changeSetting('${id}', 'solid-color', this.value); this.previousElementSibling.previousElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();"></div>`; } 
@@ -1058,16 +1275,18 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
                 sections.push(window.createPropertySection("Dolgu & Renk", fillHtml));
             }
 
-            const strokeCol = el.getAttribute('stroke') || '#000000'; const strokeW = parseFloat(el.getAttribute('stroke-width')) || 0; const dash = el.getAttribute('stroke-dasharray') || 'none';
-            let strokeHtml = `<div class="label-text" style="margin-bottom:5px;">ÇİZGİ RENGİ</div><div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;"><input type="color" value="${safeColor(strokeCol)}" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke', this.value); t.setAttribute('paint-order', 'stroke fill'); t.setAttribute('stroke-linejoin', 'round'); this.nextElementSibling.nextElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();" style="width:45px; height:45px; cursor:pointer; border:none; background:none; border-radius:8px;"><button class="action-btn" style="flex:0 0 45px; padding:12px; background:#334155; font-size:16px;" onclick="window.pickColor('${id}', '', 'stroke')" title="Göz Damlası">💧</button><input type="text" value="${safeColor(strokeCol)}" style="flex:1;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke', this.value); t.setAttribute('paint-order', 'stroke fill'); t.setAttribute('stroke-linejoin', 'round'); this.previousElementSibling.previousElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();"></div>
-            <div class="label-row"><span class="label-text">KALINLIK</span><span class="value-badge" id="val-sw-${id}">${strokeW}px</span></div>
-            <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
-                <input type="range" min="0" max="50" value="${strokeW}" style="flex:1;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke-width', this.value); t.setAttribute('paint-order', 'stroke fill'); document.getElementById('val-sw-${id}').innerText=this.value+'px'; this.nextElementSibling.value=this.value;" onchange="window.saveState()">
-                <input type="number" value="${strokeW}" style="width:70px; padding:8px;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke-width', this.value); t.setAttribute('paint-order', 'stroke fill'); document.getElementById('val-sw-${id}').innerText=this.value+'px'; this.previousElementSibling.value=this.value;" onchange="window.saveState()">
-            </div>
-            <div class="label-text" style="margin-bottom:5px;">ÇİZGİ TİPİ</div>
-            <select class="font-select" onchange="document.getElementById('${id}').setAttribute('stroke-dasharray', this.value); window.saveState();"><option value="none" ${dash === 'none' ? 'selected' : ''}>Düz</option><option value="5,5" ${dash === '5,5' ? 'selected' : ''}>Kesikli</option><option value="2,2" ${dash === '2,2' ? 'selected' : ''}>Noktalı</option></select>`;
-            sections.push(window.createPropertySection("Kenarlık & Çizgi", strokeHtml));
+            if(!isGroup) {
+                const strokeCol = el.getAttribute('stroke') || '#000000'; const strokeW = parseFloat(el.getAttribute('stroke-width')) || 0; const dash = el.getAttribute('stroke-dasharray') || 'none';
+                let strokeHtml = `<div class="label-text" style="margin-bottom:5px;">ÇİZGİ RENGİ</div><div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;"><input type="color" value="${safeColor(strokeCol)}" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke', this.value); t.setAttribute('paint-order', 'stroke fill'); t.setAttribute('stroke-linejoin', 'round'); this.nextElementSibling.nextElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();" style="width:45px; height:45px; cursor:pointer; border:none; background:none; border-radius:8px;"><button class="action-btn" style="flex:0 0 45px; padding:12px; background:#334155; font-size:16px;" onclick="window.pickColor('${id}', '', 'stroke')" title="Göz Damlası">💧</button><input type="text" value="${safeColor(strokeCol)}" style="flex:1;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke', this.value); t.setAttribute('paint-order', 'stroke fill'); t.setAttribute('stroke-linejoin', 'round'); this.previousElementSibling.previousElementSibling.value=this.value;" onchange="window.addRecentColor(this.value); window.saveState();"></div>
+                <div class="label-row"><span class="label-text">KALINLIK</span><span class="value-badge" id="val-sw-${id}">${strokeW}px</span></div>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px;">
+                    <input type="range" min="0" max="50" value="${strokeW}" style="flex:1;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke-width', this.value); t.setAttribute('paint-order', 'stroke fill'); document.getElementById('val-sw-${id}').innerText=this.value+'px'; this.nextElementSibling.value=this.value;" onchange="window.saveState()">
+                    <input type="number" value="${strokeW}" style="width:70px; padding:8px;" oninput="const t=document.getElementById('${id}'); t.setAttribute('stroke-width', this.value); t.setAttribute('paint-order', 'stroke fill'); document.getElementById('val-sw-${id}').innerText=this.value+'px'; this.previousElementSibling.value=this.value;" onchange="window.saveState()">
+                </div>
+                <div class="label-text" style="margin-bottom:5px;">ÇİZGİ TİPİ</div>
+                <select class="font-select" onchange="document.getElementById('${id}').setAttribute('stroke-dasharray', this.value); window.saveState();"><option value="none" ${dash === 'none' ? 'selected' : ''}>Düz</option><option value="5,5" ${dash === '5,5' ? 'selected' : ''}>Kesikli</option><option value="2,2" ${dash === '2,2' ? 'selected' : ''}>Noktalı</option></select>`;
+                sections.push(window.createPropertySection("Kenarlık & Çizgi", strokeHtml));
+            }
 
             let opacityVal = parseFloat(el.getAttribute('opacity')); if (isNaN(opacityVal)) opacityVal = 1;
             const sX = parseFloat(window.getD(el, 'shadow-x')) || 0, sY = parseFloat(window.getD(el, 'shadow-y')) || 0, sB = parseFloat(window.getD(el, 'shadow-blur')) || 0, sC = window.getD(el, 'shadow-color') || '#000000', bl = parseFloat(window.getD(el, 'blur')) || 0; const blend = window.getD(el, 'blend') || 'normal';
@@ -1145,6 +1364,10 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             window.saveState(); window.setupLayers(); window.updateEditorUI(selectedEl); window.renderEditor(); 
         } catch(err) { alert('Hata: Lütfen geçerli bir SVG kodu girin.'); }
     };
+
+// ==========================================
+// MİNİ HARİTA (MINIMAP) AKILLI MOTORU
+// ==========================================
 
 window.updateMinimap = function() {
     const svg = document.querySelector('#canvas-inner svg');
