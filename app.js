@@ -739,7 +739,19 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     window.updateUI = function(el, snapX=null, snapY=null) {
         const ctrl = document.getElementById('control-layer');
         ctrl.innerHTML = ""; if(!el) return;
-        let b = {x:0,y:0,width:0,height:0}; try { b = el.getBBox(); }catch(e){return;}
+        // EKLENEN ÇÖZÜM: SVG sarmalayıcıların koordinat sapmasını düzelten mantık
+    let b = {x:0,y:0,width:0,height:0}; 
+    try { 
+        b = el.getBBox(); 
+        if (el.tagName === 'svg') {
+            b = {
+                x: parseFloat(el.getAttribute("x")) || 0,
+                y: parseFloat(el.getAttribute("y")) || 0,
+                width: parseFloat(el.getAttribute("width")) || b.width,
+                height: parseFloat(el.getAttribute("height")) || b.height
+            };
+        }
+    } catch(e) { return; }
         const transform = el.getAttribute("transform") || ""; const isLocked = window.getD(el, 'locked') === "true";
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("transform", transform); ctrl.appendChild(g);
 
