@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SVG Pro Studio | Kusursuz CMS V41 (Sıfır Hata)</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700;800&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -108,8 +111,9 @@
         <div class="sidebar-scroll-area">
             <div style="display:flex; gap:5px; margin-bottom: 10px;">
                 <button onclick="window.saveData()" class="action-btn active" style="flex:2; font-size:12px;">💾 KAYDET</button>
-                <button onclick="window.openExport('png')" class="action-btn special" style="flex:1; background:#0284c7;">📥 PNG</button>
-                <button onclick="window.openExport('svg')" class="action-btn svg" style="flex:1; background:#ea580c;">📥 SVG</button>
+                <button onclick="window.openExport('png')" class="action-btn special" style="flex:1; background:#0284c7;">PNG</button>
+                <button onclick="window.openExport('svg')" class="action-btn svg" style="flex:1; background:#ea580c;">SVG</button>
+                <button onclick="window.openExport('pdf')" class="action-btn" style="flex:1; background:#dc2626;">PDF</button>
             </div>
             
             <select id="file-selector" style="width:100%; padding:10px; background:#000; color:#fff; border-radius:8px; margin-bottom:10px; border:1px solid #334155; outline:none;">
@@ -164,7 +168,7 @@
                 <div class="group-box" style="margin-top:5px; margin-bottom:5px;">
                     <div class="action-row" style="margin-bottom:10px;">
                         <button onclick="window.addNewText()" class="action-btn" style="background:#475569;">+ YAZI</button>
-                        <button onclick="document.getElementById('img-in').click()" class="action-btn" style="background:#475569;" title="Sürükle-Bırak da Yapabilirsiniz">+ RESİM</button>
+                        <button onclick="document.getElementById('img-in').click()" class="action-btn" style="background:#475569;" title="Resim veya Font (.ttf) Sürükleyip Bırakabilirsiniz">+ RESİM / FONT</button>
                         <button id="btn-draw" onclick="window.toggleDrawMode()" class="action-btn draw" style="background:#8b5cf6;" title="Fırça Aracı">🖌️ ÇİZİM</button>
                     </div>
                     <div style="display:flex; flex:2; gap:4px;">
@@ -181,13 +185,13 @@
             </details>
 
             <details style="margin-bottom: 5px;" open>
-                <summary style="font-size:11px; font-weight:bold; color:#06b6d4; cursor:pointer; margin-bottom:5px;">📑 KATMANLAR</summary>
+                <summary style="font-size:11px; font-weight:bold; color:#06b6d4; cursor:pointer; margin-bottom:5px;">📑 KATMANLAR (Sürükle & Bırak)</summary>
                 <div class="group-box" style="margin-top:5px; margin-bottom:5px; padding: 0; overflow: hidden; border: 1px solid var(--border);">
                     <div id="layers-list" style="max-height: 200px; overflow-y: auto;"></div>
                 </div>
             </details>
 
-            <input type="file" id="img-in" accept="image/*" hidden>
+            <input type="file" id="img-in" accept="image/*,.ttf,.otf,.woff" hidden>
         </div>
 
         <div id="editor-fields">
