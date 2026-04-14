@@ -523,7 +523,8 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         
         el.setAttribute("fill", fillVal); if(el.tagName !== 'path') el.style.fill = fillVal;
         if(el.tagName === 'g' || el.tagName === 'svg') { 
-    el.querySelectorAll('path, circle, rect, polygon, ellipse, line').forEach(child => { 
+    // EKLENEN KISIM: rect:not(.click-catcher) diyerek kalkanı boyamaktan kaçınıyoruz
+    el.querySelectorAll('path, circle, rect:not(.click-catcher), polygon, ellipse, line').forEach(child => { 
         if (child.tagName === 'line') {
             // Çizgilerin "fill" (dolgu) değeri yoktur, bu yüzden renk "stroke" (çizgi) değerine uygulanır
             child.style.stroke = fillVal; child.setAttribute('stroke', fillVal);
