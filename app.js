@@ -224,6 +224,9 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     clickCatcher.setAttribute("width", "100");
     clickCatcher.setAttribute("height", "100");
     clickCatcher.setAttribute("fill", "transparent");
+    // EKLENEN KISIM: Kalkanı sisteme tanıtıyoruz ve kenarlık almasını engelliyoruz
+    clickCatcher.setAttribute("class", "click-catcher"); 
+    clickCatcher.setAttribute("stroke", "none"); 
     shapeContainer.appendChild(clickCatcher);
     
     shapeContainer.appendChild(innerEl);
