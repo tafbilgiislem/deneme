@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SVG Pro Studio | Kusursuz CMS V41 (Sıfır Hata)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700;800&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="status-info">İşlem Yapılıyor...</div>
+
+<div id="context-menu">
+    <div class="ctx-item" onclick="if(selectedEl) window.cloneElement(selectedEl.id); window.closeCtx();"><span>⧉ Kopyala</span><span class="kbd">Alt+Sürükle</span></div>
+    <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+    <div class="ctx-item" onclick="if(selectedEl) window.moveLayer(selectedEl.id, 1); window.closeCtx();"><span>▲ Öne Getir</span></div>
+    <div class="ctx-item" onclick="if(selectedEl) window.moveLayer(selectedEl.id, -1); window.closeCtx();"><span>▼ Arkaya Gönder</span></div>
+    <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+    <div class="ctx-item" onclick="if(selectedEl) window.toggleLock(selectedEl.id); window.closeCtx();"><span id="ctx-lock-text">🔒 Kilitle</span></div>
+    <div class="ctx-item danger" onclick="if(selectedEl && confirm('Silinecek?')){ selectedEl.remove(); selectedEl=null; window.saveState(); window.renderEditor(); document.getElementById('control-layer').innerHTML=''; } window.closeCtx();"><span>🗑️ Sil</span><span class="kbd">Del</span></div>
+</div>
+
+<div id="hotkey-modal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal" onclick="document.getElementById('hotkey-modal').style.display='none'">×</span>
+        <h3 style="margin-top:0; color:var(--accent);">⌨️ Kısayol Haritası</h3>
+        <div class="shortcut-row"><span>Gezinme (El Aracı)</span><span class="kbd">Space + Sürükle</span></div>
+        <div class="shortcut-row"><span>Hızlı Kopyalama</span><span class="kbd">Alt + Sürükle</span></div>
+        <div class="shortcut-row"><span>Hassas Taşıma</span><span class="kbd">Ok Tuşları</span></div>
+        <div class="shortcut-row"><span>Hızlı Taşıma</span><span class="kbd">Shift + Ok Tuşları</span></div>
+        <div class="shortcut-row"><span>Geri Al</span><span class="kbd">Ctrl + Z</span></div>
+        <div class="shortcut-row"><span>İleri Al</span><span class="kbd">Ctrl + Y</span></div>
+        <div class="shortcut-row"><span>Kopyala</span><span class="kbd">Ctrl + C</span></div>
+        <div class="shortcut-row"><span>Yapıştır</span><span class="kbd">Ctrl + V</span></div>
+        <div class="shortcut-row" style="border:none;"><span>Sil</span><span class="kbd">Del / Backspace</span></div>
+    </div>
+</div>
+
+<div id="export-modal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-modal" onclick="document.getElementById('export-modal').style.display='none'">×</span>
+        <h3 style="margin-top:0; color:var(--accent);">📥 İndirme Seçenekleri</h3>
+        <input type="hidden" id="export-format" value="png">
+        <div class="input-group" style="margin-bottom:15px;">
+            <span class="label-text">ÇÖZÜNÜRLÜK (KALİTE)</span>
+            <select id="export-scale" class="font-select">
+                <option value="1">1x (Normal - Orijinal Boyut)</option>
+                <option value="2">2x (Yüksek Kalite)</option>
+                <option value="3">3x (Ultra Kalite)</option>
+            </select>
+        </div>
+        <div class="input-group" style="margin-bottom:20px;">
+            <span class="label-text">KAPSAM</span>
+            <select id="export-scope" class="font-select">
+                <option value="all">Tüm Tuvali İndir (Arka Plan Dahil)</option>
+                <option value="selected">Sadece Seçili Nesne (Şeffaf)</option>
+            </select>
+        </div>
+        <button class="action-btn active" style="width:100%; padding:15px; font-size:14px;" onclick="window.executeExport()">İNDİRMEYİ BAŞLAT</button>
+    </div>
+</div>
+
+<div id="login-screen">
+    <div class="login-card">
+        <h2 style="margin-top:0; color:white;">Pro Studio V40</h2>
+        <div style="font-size:12px; color:#94a3b8; margin-bottom:20px;">Lütfen Cloudflare Worker şifrenizi girin.</div>
+        <input type="password" id="passInput" placeholder="Sunucu Şifresi">
+        <button id="loginBtn" onclick="window.login()">Sunucuya Bağlan</button>
+    </div>
+</div>
+
+<div id="app-container">
+    <div id="main-view">
+        <div id="horizontal-ruler" class="ruler ruler-h"></div>
+        <div id="vertical-ruler" class="ruler ruler-v"></div>
+
+        <div class="floating-tools">
+            <button class="tool-btn" id="btn-undo" onclick="window.undo()" title="Geri Al (Ctrl+Z)">↩ Geri</button>
+            <button class="tool-btn" id="btn-redo" onclick="window.redo()" title="İleri Al (Ctrl+Y)">İleri ↪</button>
+            <div style="width: 1px; background: var(--border); margin: 0 5px; height: 20px;"></div>
+            <button class="tool-btn" onclick="window.changeZoom(-0.1)" title="Uzaklaştır">-</button>
+            <button class="tool-btn" id="zoom-val" onclick="window.resetZoom()" title="Sıfırla">100%</button>
+            <button class="tool-btn" onclick="window.changeZoom(0.1)" title="Yakınlaştır">+</button>
+            <div style="width: 1px; background: var(--border); margin: 0 5px; height: 20px;"></div>
+            <button class="tool-btn" onclick="document.getElementById('hotkey-modal').style.display='flex'" title="Kısayol Haritası">⌨️</button>
+        </div>
+
+        <div id="zoom-container">
+            <div id="svg-wrapper">
+                <div id="canvas-inner"></div>
+                <svg id="control-layer"></svg>
+            </div>
+        </div>
+        <div id="status-bar">
+            <div id="status-count">Nesne Sayısı: 0</div>
+            <div>SVG Pro Studio Ultimate V40</div>
+            <div id="status-time">Son Kayıt: Bekleniyor...</div>
+        </div>
+    </div>
+    
+    <div id="sidebar">
+        <div class="sidebar-scroll-area">
+            <div style="display:flex; gap:5px; margin-bottom: 10px;">
+                <button onclick="window.saveData()" class="action-btn active" style="flex:2; font-size:12px;">💾 KAYDET</button>
+                <button onclick="window.openExport('png')" class="action-btn special" style="flex:1; background:#0284c7;">📥 PNG</button>
+                <button onclick="window.openExport('svg')" class="action-btn svg" style="flex:1; background:#ea580c;">📥 SVG</button>
+            </div>
+            
+            <select id="file-selector" style="width:100%; padding:10px; background:#000; color:#fff; border-radius:8px; margin-bottom:10px; border:1px solid #334155; outline:none;">
+                <option value="1.svg">Ana Slayt (yasmani.svg)</option>
+                <option value="2.svg">Kampanya (kampanya.svg)</option>
+                <option value="3.svg">Duyuru (duyuru.svg)</option>
+            </select>
+            
+            <details style="margin-bottom: 10px;">
+                <summary style="font-size:11px; font-weight:bold; color:#f59e0b; cursor:pointer; margin-bottom:5px;">🎬 SEÇİLİ SLAYT AYARLARI (JSON)</summary>
+                <div class="group-box" style="margin-top:5px;">
+                    <div style="font-size:10px; color:#94a3b8; margin-bottom:10px; font-style:italic;">Değişiklikler doğrudan settings.json dosyasına işlenir.</div>
+                    <div class="input-group" style="margin-bottom:10px;">
+                        <span class="label-text">BU SLAYTIN EKRANDA KALMA SÜRESİ (ms)</span>
+                        <input type="number" id="slide-time" value="5000">
+                    </div>
+                    <div class="input-group" style="margin-bottom:10px;">
+                        <span class="label-text">BU SLAYT İÇİN GEÇİŞ EFEKTİ</span>
+                        <select id="slide-effect" class="font-select">
+                            <option value="fade">Fade (Yumuşak Geçiş)</option>
+                            <option value="slide">Slide (Kaydırma)</option>
+                            <option value="zoom">Zoom (Yakınlaştırma)</option>
+                            <option value="cube">Cube (3D Küp)</option>
+                            <option value="coverflow">Coverflow (3D Galeri)</option>
+                            <option value="flip">Flip (Kart Çevirme)</option>
+                            <option value="none">Efektsiz</option>
+                        </select>
+                    </div>
+                    <button class="action-btn" style="width:100%; background:#f59e0b; color:black;" onclick="window.saveSlideSettings()">💾 AYARLARI KAYDET (JSON)</button>
+                </div>
+            </details>
+
+            <details style="margin-bottom: 10px;">
+                <summary style="font-size:11px; font-weight:bold; color:var(--accent); cursor:pointer; margin-bottom:5px;">📐 TUVAL AYARLARI</summary>
+                <div class="group-box" style="margin-top:5px;">
+                    <div style="display:flex; gap:10px; align-items: center; margin-bottom:10px;">
+                        <input type="number" id="canvas-w" placeholder="Genişlik" onchange="window.updateCanvasSize()">
+                        <span style="color:#64748b;">X</span>
+                        <input type="number" id="canvas-h" placeholder="Yükseklik" onchange="window.updateCanvasSize()">
+                        <input type="color" id="canvas-bg-color" title="Arka Plan Rengi" oninput="window.updateCanvasBg()" style="width:40px; height:35px; cursor:pointer; border:none; background:none;">
+                    </div>
+                    <div class="action-row" style="margin:0;">
+                        <button onclick="window.addGuide('h')" class="action-btn" style="background:#06b6d4; font-size:11px;">+ YATAY KILAVUZ</button>
+                        <button onclick="window.addGuide('v')" class="action-btn" style="background:#06b6d4; font-size:11px;">+ DİKEY KILAVUZ</button>
+                        <button onclick="window.clearGuides()" class="action-btn" style="background:#ef4444; font-size:11px;">TEMİZLE</button>
+                    </div>
+                </div>
+            </details>
+            
+            <details style="margin-bottom: 10px;" open>
+                <summary style="font-size:11px; font-weight:bold; color:#8b5cf6; cursor:pointer; margin-bottom:5px;">🎨 NESNE EKLE & ARAÇLAR</summary>
+                <div class="group-box" style="margin-top:5px; margin-bottom:5px;">
+                    <div class="action-row" style="margin-bottom:0;">
+                        <button onclick="window.addNewText()" class="action-btn" style="background:#475569;">+ YAZI</button>
+                        <button onclick="document.getElementById('img-in').click()" class="action-btn" style="background:#475569;" title="Sürükle-Bırak da Yapabilirsiniz">+ RESİM</button>
+                        <button onclick="window.addShape('rect')" class="action-btn" style="background:#475569;">+ KARE</button>
+                        <button id="btn-draw" onclick="window.toggleDrawMode()" class="action-btn draw" style="background:#8b5cf6;" title="Fırça Aracı">🖌️ ÇİZİM</button>
+                    </div>
+                </div>
+            </details>
+
+            <details style="margin-bottom: 5px;" open>
+                <summary style="font-size:11px; font-weight:bold; color:#06b6d4; cursor:pointer; margin-bottom:5px;">📑 KATMANLAR</summary>
+                <div class="group-box" style="margin-top:5px; margin-bottom:5px; padding: 0; overflow: hidden; border: 1px solid var(--border);">
+                    <div id="layers-list" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+            </details>
+
+            <input type="file" id="img-in" accept="image/*" hidden>
+        </div>
+
+        <div id="editor-fields">
+            <div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">
+                👆 Düzenlemek için sahneden veya katmanlardan bir nesne seçin.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
