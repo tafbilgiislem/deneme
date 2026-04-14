@@ -106,7 +106,6 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         } catch(e) { alert("Bağlantı Hatası!"); st.style.display="none"; document.getElementById('login-screen').style.display = "flex"; document.getElementById('app-container').style.display = "none"; }
     };
 
-    // ====== KAYDET, YAZI EKLE, KARE EKLE BUTONLARI (Kusursuz ve Eksiksiz) ======
     window.saveData = async function() {
         if (!WORKER_URL || WORKER_URL === "") { alert("Lütfen kodun içindeki WORKER_URL kısmına kendi linkinizi yazın!"); return; }
         const st = document.getElementById('status-info'); st.innerText = "KAYDEDİLİYOR..."; st.style.display = "block";
@@ -151,93 +150,82 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     };
     
     window.addShape = function(type) {
-    const svg = document.querySelector('#canvas-inner svg'); if(!svg) return; 
-    const center = window.getCanvasCenter();
-    
-    // 1. KARE (Mevcut yapıyı koruyoruz, çünkü köşeleri yumuşatma (radius) özelliği var)
-    if (type === 'rect') {
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.id = "shp_" + Date.now(); rect.setAttribute("class", "duzenlenebilir"); 
-        rect.setAttribute("x", center.cx - 100); rect.setAttribute("y", center.cy - 100); 
-        rect.setAttribute("width", 200); rect.setAttribute("height", 200); 
-        window.setD(rect, 'solid-color', "#10b981"); rect.setAttribute("fill", "#10b981"); window.setD(rect, 'mask-shape', "none");
-        svg.appendChild(rect); selectedEl = rect; window.saveState(); window.setupLayers(); window.updateEditorUI(rect); window.renderEditor();
-        return;
-    }
+        const svg = document.querySelector('#canvas-inner svg'); if(!svg) return; 
+        const center = window.getCanvasCenter();
+        
+        if (type === 'rect') {
+            const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            rect.id = "shp_" + Date.now(); rect.setAttribute("class", "duzenlenebilir"); 
+            rect.setAttribute("x", center.cx - 100); rect.setAttribute("y", center.cy - 100); 
+            rect.setAttribute("width", 200); rect.setAttribute("height", 200); 
+            window.setD(rect, 'solid-color', "#10b981"); rect.setAttribute("fill", "#10b981"); window.setD(rect, 'mask-shape', "none");
+            svg.appendChild(rect); selectedEl = rect; window.saveState(); window.setupLayers(); window.updateEditorUI(rect); window.renderEditor();
+            return;
+        }
 
-    // 2. DİĞER ŞEKİLLER (Sürükleme ve boyutlandırma motorunun bozulmaması için SVG sarmalayıcı kullanıyoruz)
-    const shapeContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    shapeContainer.id = "shp_" + Date.now(); 
-    shapeContainer.setAttribute("class", "duzenlenebilir"); 
-    
-    let w = 200, h = 200;
-    if(type === 'line') { h = 10; w = 300; } // Çizgi için ince uzun bir alan
-    if(type === 'ellipse') { w = 300; h = 150; } // Elips için geniş bir alan
-    
-    // Çerçeveyi (Wrapper) oluştur ve boyutlandır
-    shapeContainer.setAttribute("x", center.cx - w/2); 
-    shapeContainer.setAttribute("y", center.cy - h/2); 
-    shapeContainer.setAttribute("width", w); 
-    shapeContainer.setAttribute("height", h); 
-    shapeContainer.setAttribute("viewBox", "0 0 100 100");
-    shapeContainer.setAttribute("preserveAspectRatio", "none"); // Serbest boyutlandırma izni
-    shapeContainer.style.overflow = "visible"; // Kalın çizgilerin kesilmemesi için
-    
-    window.setD(shapeContainer, 'solid-color', "#10b981"); 
-    
-    // İç şekli (Gerçek Geometriyi) oluştur
-    let innerEl;
-    if (type === 'circle') {
-        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
-        innerEl.setAttribute("r", "50");
-    } else if (type === 'ellipse') {
-        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
-        innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
-        innerEl.setAttribute("rx", "50"); innerEl.setAttribute("ry", "50");
-    } else if (type === 'polygon') {
-        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-        innerEl.setAttribute("points", "50,0 100,100 0,100"); // Üçgen
-    } else if (type === 'line') {
-        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        innerEl.setAttribute("x1", "0"); innerEl.setAttribute("y1", "50");
-        innerEl.setAttribute("x2", "100"); innerEl.setAttribute("y2", "50");
-        innerEl.setAttribute("stroke-width", "5");
-    }
-    
-    // Boyutlandırıldığında çizgi kalınlığının (stroke) bozulmaması için sihirli kod:
-    innerEl.setAttribute("vector-effect", "non-scaling-stroke");
-    
-    // Renklendirme
-    if (type === 'line') {
-        innerEl.setAttribute("stroke", "#10b981");
-        shapeContainer.setAttribute("fill", "none");
-    } else {
-        innerEl.setAttribute("fill", "#10b981");
-    }
-    
-    // İç nesneye tıklanmasını engelle
-    innerEl.style.pointerEvents = "none";
-    
-    // EKLENEN ÇÖZÜM: Tıklamaları yakalayacak görünmez arka plan (Click Catcher)
-    const clickCatcher = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    clickCatcher.setAttribute("width", "100");
-    clickCatcher.setAttribute("height", "100");
-    clickCatcher.setAttribute("fill", "transparent");
-    // EKLENEN KISIM: Kalkanı sisteme tanıtıyoruz ve kenarlık almasını engelliyoruz
-    clickCatcher.setAttribute("class", "click-catcher"); 
-    clickCatcher.setAttribute("stroke", "none"); 
-    shapeContainer.appendChild(clickCatcher);
-    
-    shapeContainer.appendChild(innerEl);
-    
-    // Tuvale Ekle
-    svg.appendChild(shapeContainer); 
-    selectedEl = shapeContainer; 
-    window.saveState(); window.setupLayers(); window.updateEditorUI(shapeContainer); window.renderEditor();
-};
+        const shapeContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        shapeContainer.id = "shp_" + Date.now(); 
+        shapeContainer.setAttribute("class", "duzenlenebilir"); 
+        
+        let w = 200, h = 200;
+        if(type === 'line') { h = 10; w = 300; }
+        if(type === 'ellipse') { w = 300; h = 150; }
+        
+        shapeContainer.setAttribute("x", center.cx - w/2); 
+        shapeContainer.setAttribute("y", center.cy - h/2); 
+        shapeContainer.setAttribute("width", w); 
+        shapeContainer.setAttribute("height", h); 
+        shapeContainer.setAttribute("viewBox", "0 0 100 100");
+        shapeContainer.setAttribute("preserveAspectRatio", "none"); 
+        shapeContainer.style.overflow = "visible"; 
+        
+        window.setD(shapeContainer, 'solid-color', "#10b981"); 
+        
+        let innerEl;
+        if (type === 'circle') {
+            innerEl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
+            innerEl.setAttribute("r", "50");
+        } else if (type === 'ellipse') {
+            innerEl = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+            innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
+            innerEl.setAttribute("rx", "50"); innerEl.setAttribute("ry", "50");
+        } else if (type === 'polygon') {
+            innerEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            innerEl.setAttribute("points", "50,0 100,100 0,100"); 
+        } else if (type === 'line') {
+            innerEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            innerEl.setAttribute("x1", "0"); innerEl.setAttribute("y1", "50");
+            innerEl.setAttribute("x2", "100"); innerEl.setAttribute("y2", "50");
+            innerEl.setAttribute("stroke-width", "5");
+        }
+        
+        innerEl.setAttribute("vector-effect", "non-scaling-stroke");
+        
+        if (type === 'line') {
+            innerEl.setAttribute("stroke", "#10b981");
+            shapeContainer.setAttribute("fill", "none");
+        } else {
+            innerEl.setAttribute("fill", "#10b981");
+        }
+        
+        innerEl.style.pointerEvents = "none";
+        
+        const clickCatcher = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        clickCatcher.setAttribute("width", "100");
+        clickCatcher.setAttribute("height", "100");
+        clickCatcher.setAttribute("fill", "transparent");
+        clickCatcher.setAttribute("class", "click-catcher"); 
+        clickCatcher.setAttribute("stroke", "none"); 
+        shapeContainer.appendChild(clickCatcher);
+        
+        shapeContainer.appendChild(innerEl);
+        
+        svg.appendChild(shapeContainer); 
+        selectedEl = shapeContainer; 
+        window.saveState(); window.setupLayers(); window.updateEditorUI(shapeContainer); window.renderEditor();
+    };
 
-    // ======= GÜVENLİ VE HIZLI KAYDIRICI (SLIDER) MOTORU =======
     window.changeProp = function(id, prop, val, elUI) {
         const el = document.getElementById(id); if(!el) return;
         if(prop === 'x') el.setAttribute('x', val);
@@ -523,16 +511,14 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         
         el.setAttribute("fill", fillVal); if(el.tagName !== 'path') el.style.fill = fillVal;
         if(el.tagName === 'g' || el.tagName === 'svg') { 
-    // EKLENEN KISIM: rect:not(.click-catcher) diyerek kalkanı boyamaktan kaçınıyoruz
-    el.querySelectorAll('path, circle, rect:not(.click-catcher), polygon, ellipse, line').forEach(child => { 
-        if (child.tagName === 'line') {
-            // Çizgilerin "fill" (dolgu) değeri yoktur, bu yüzden renk "stroke" (çizgi) değerine uygulanır
-            child.style.stroke = fillVal; child.setAttribute('stroke', fillVal);
-        } else {
-            child.style.fill = fillVal; child.setAttribute('fill', fillVal); 
+            el.querySelectorAll('path, circle, rect:not(.click-catcher), polygon, ellipse, line').forEach(child => { 
+                if (child.tagName === 'line') {
+                    child.style.stroke = fillVal; child.setAttribute('stroke', fillVal);
+                } else {
+                    child.style.fill = fillVal; child.setAttribute('fill', fillVal); 
+                }
+            }); 
         }
-    }); 
-}
     };
 
     window.autoFitText = function(el) { 
@@ -590,11 +576,11 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         if (!mainSvg) return;
         if (!mainSvg.getAttribute('xmlns')) mainSvg.setAttribute('xmlns', "http://www.w3.org/2000/svg");
         
-        // EKLENEN KISIM: Eski kaydedilmiş şekillerin kalkanlarını otomatik onar
         mainSvg.querySelectorAll('svg.duzenlenebilir > rect[fill="transparent"]').forEach(r => {
             r.classList.add("click-catcher");
             r.setAttribute("stroke", "none");
         });
+        
         let w = 1920, h = 1080;
         if (mainSvg.hasAttribute('viewBox')) { const vb = mainSvg.getAttribute('viewBox').split(/\s+|,/); if(vb.length >= 4) { w = parseFloat(vb[2]); h = parseFloat(vb[3]); } }
         ctrl.setAttribute("viewBox", `0 0 ${w} ${h}`);
@@ -611,6 +597,9 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             if(window.getD(el, 'fill-type')) window.applyFill(el);
         });
         window.initEngine(mainSvg); window.renderEditor(); window.updateRulers();
+        
+        // Setup Layers bittiğinde haritayı da tetikle
+        if(window.updateMinimap) window.updateMinimap();
     };
 
     window.initEngine = function(svg) {
@@ -749,19 +738,19 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     window.updateUI = function(el, snapX=null, snapY=null) {
         const ctrl = document.getElementById('control-layer');
         ctrl.innerHTML = ""; if(!el) return;
-        // EKLENEN ÇÖZÜM: SVG sarmalayıcıların koordinat sapmasını düzelten mantık
-    let b = {x:0,y:0,width:0,height:0}; 
-    try { 
-        b = el.getBBox(); 
-        if (el.tagName === 'svg') {
-            b = {
-                x: parseFloat(el.getAttribute("x")) || 0,
-                y: parseFloat(el.getAttribute("y")) || 0,
-                width: parseFloat(el.getAttribute("width")) || b.width,
-                height: parseFloat(el.getAttribute("height")) || b.height
-            };
-        }
-    } catch(e) { return; }
+        let b = {x:0,y:0,width:0,height:0}; 
+        try { 
+            b = el.getBBox(); 
+            if (el.tagName === 'svg') {
+                b = {
+                    x: parseFloat(el.getAttribute("x")) || 0,
+                    y: parseFloat(el.getAttribute("y")) || 0,
+                    width: parseFloat(el.getAttribute("width")) || b.width,
+                    height: parseFloat(el.getAttribute("height")) || b.height
+                };
+            }
+        } catch(e) { return; }
+        
         const transform = el.getAttribute("transform") || ""; const isLocked = window.getD(el, 'locked') === "true";
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("transform", transform); ctrl.appendChild(g);
 
@@ -1057,6 +1046,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             window.saveState(); window.setupLayers(); window.updateEditorUI(selectedEl); window.renderEditor(); 
         } catch(err) { alert('Hata: Lütfen geçerli bir SVG kodu girin.'); }
     };
+
 // ==========================================
 // MİNİ HARİTA (MINIMAP) AKILLI MOTORU
 // ==========================================
@@ -1067,21 +1057,17 @@ window.updateMinimap = function() {
     const mmContainer = document.getElementById('minimap-container');
     if(!svg || !mmContent || !mmContainer) return;
 
-    // Tuvalin boyutlarını al
     const vb = svg.viewBox.baseVal;
     const w = vb.width || 1920;
     const h = vb.height || 1080;
     
-    // Konteyner yüksekliğini orantılı ayarla (Genişlik sabit 200px)
     const containerW = 200;
     const containerH = (h / w) * containerW;
     mmContainer.style.height = containerH + 'px';
 
-    // SVG'yi klonla ve gereksizleri temizle
     const clone = svg.cloneNode(true);
     const guides = clone.querySelector('#guides-group'); if (guides) guides.remove();
 
-    // Klonu kapsayıcıya tam oturacak şekilde ayarla
     clone.setAttribute('width', '100%');
     clone.setAttribute('height', '100%');
     clone.style.width = '100%';
@@ -1100,7 +1086,6 @@ window.updateMinimapViewport = function() {
     const mainView = document.getElementById('main-view');
     if(!svg || !mmContainer || !mmViewport || !mainView) return;
 
-    // Ana pencerenin köşe koordinatları
     const mainRect = mainView.getBoundingClientRect();
     const ptTL = svg.createSVGPoint(); const ptBR = svg.createSVGPoint();
     ptTL.x = mainRect.left; ptTL.y = mainRect.top;
@@ -1109,46 +1094,37 @@ window.updateMinimapViewport = function() {
     const ctm = svg.getScreenCTM(); if(!ctm) return;
     const invCTM = ctm.inverse();
 
-    // Ekrandaki pikselleri gerçek SVG içi koordinatlara çevir (Nokta atışı isabet)
     const svgTL = ptTL.matrixTransform(invCTM);
     const svgBR = ptBR.matrixTransform(invCTM);
 
     const visibleW = svgBR.x - svgTL.x;
     const visibleH = svgBR.y - svgTL.y;
 
-    // Minimap oranlarını hesapla
     const vb = svg.viewBox.baseVal;
     const canvasW = vb.width || 1920; const canvasH = vb.height || 1080;
     const scaleX = mmContainer.clientWidth / canvasW;
     const scaleY = mmContainer.clientHeight / canvasH;
 
-    // Kırmızı görünüm kutusunu (Viewport) güncelle
     mmViewport.style.left = (svgTL.x * scaleX) + 'px';
     mmViewport.style.top = (svgTL.y * scaleY) + 'px';
     mmViewport.style.width = (visibleW * scaleX) + 'px';
     mmViewport.style.height = (visibleH * scaleY) + 'px';
 };
 
-// --- MEVCUT SİSTEME MÜDAHALE ETMEDEN ARAYA GİRME (HOOK) ---
-
-// 1. Her kayıtta (nesne eklendiğinde/silindiğinde) haritayı güncelle
 const originalSaveState = window.saveState;
 window.saveState = function() {
     if(originalSaveState) originalSaveState();
     setTimeout(() => window.updateMinimap(), 50); 
 };
 
-// 2. Her Yakınlaştırma/Uzaklaştırma veya Pan (Kaydırma) işleminde kırmızı kutuyu güncelle
 const originalApplyZoom = window.applyZoom;
 window.applyZoom = function() {
     if(originalApplyZoom) originalApplyZoom();
     window.updateMinimapViewport();
 };
 
-// 3. Tarayıcı penceresi boyutu değişirse kutuyu ayarla
 window.addEventListener('resize', window.updateMinimapViewport);
 
-// --- HARİTAYA TIKLAYARAK VEYA SÜRÜKLEYEREK GEZİNME (PAN) ---
 const initMinimapInteraction = () => {
     const mmContainer = document.getElementById('minimap-container');
     if(!mmContainer) { setTimeout(initMinimapInteraction, 500); return; }
