@@ -161,7 +161,16 @@
                     <div class="action-row" style="margin-bottom:0;">
                         <button onclick="window.addNewText()" class="action-btn" style="background:#475569;">+ YAZI</button>
                         <button onclick="document.getElementById('img-in').click()" class="action-btn" style="background:#475569;" title="Sürükle-Bırak da Yapabilirsiniz">+ RESİM</button>
-                        <button onclick="window.addShape('rect')" class="action-btn" style="background:#475569;">+ KARE</button>
+                        <div style="display:flex; flex:2; gap:4px;">
+    <select id="shape-selector" class="font-select" style="margin-bottom:0; flex:1; padding:0 5px; height:35px; border:1px solid #334155; border-radius:8px;">
+        <option value="rect">Kare</option>
+        <option value="circle">Daire</option>
+        <option value="ellipse">Elips</option>
+        <option value="polygon">Çokgen (Üçgen)</option>
+        <option value="line">Çizgi</option>
+    </select>
+    <button onclick="window.addShape(document.getElementById('shape-selector').value)" class="action-btn" style="background:#475569; padding:0 10px; flex:1;">+ EKLE</button>
+</div>
                         <button id="btn-draw" onclick="window.toggleDrawMode()" class="action-btn draw" style="background:#8b5cf6;" title="Fırça Aracı">🖌️ ÇİZİM</button>
                     </div>
                 </div>
