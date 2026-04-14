@@ -151,15 +151,80 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     };
     
     window.addShape = function(type) {
-        const svg = document.querySelector('#canvas-inner svg'); if(!svg) return; 
-        const center = window.getCanvasCenter();
+    const svg = document.querySelector('#canvas-inner svg'); if(!svg) return; 
+    const center = window.getCanvasCenter();
+    
+    // 1. KARE (Mevcut yapıyı koruyoruz, çünkü köşeleri yumuşatma (radius) özelliği var)
+    if (type === 'rect') {
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
         rect.id = "shp_" + Date.now(); rect.setAttribute("class", "duzenlenebilir"); 
         rect.setAttribute("x", center.cx - 100); rect.setAttribute("y", center.cy - 100); 
         rect.setAttribute("width", 200); rect.setAttribute("height", 200); 
         window.setD(rect, 'solid-color', "#10b981"); rect.setAttribute("fill", "#10b981"); window.setD(rect, 'mask-shape', "none");
         svg.appendChild(rect); selectedEl = rect; window.saveState(); window.setupLayers(); window.updateEditorUI(rect); window.renderEditor();
-    };
+        return;
+    }
+
+    // 2. DİĞER ŞEKİLLER (Sürükleme ve boyutlandırma motorunun bozulmaması için SVG sarmalayıcı kullanıyoruz)
+    const shapeContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    shapeContainer.id = "shp_" + Date.now(); 
+    shapeContainer.setAttribute("class", "duzenlenebilir"); 
+    
+    let w = 200, h = 200;
+    if(type === 'line') { h = 10; w = 300; } // Çizgi için ince uzun bir alan
+    if(type === 'ellipse') { w = 300; h = 150; } // Elips için geniş bir alan
+    
+    // Çerçeveyi (Wrapper) oluştur ve boyutlandır
+    shapeContainer.setAttribute("x", center.cx - w/2); 
+    shapeContainer.setAttribute("y", center.cy - h/2); 
+    shapeContainer.setAttribute("width", w); 
+    shapeContainer.setAttribute("height", h); 
+    shapeContainer.setAttribute("viewBox", "0 0 100 100");
+    shapeContainer.setAttribute("preserveAspectRatio", "none"); // Serbest boyutlandırma izni
+    shapeContainer.style.overflow = "visible"; // Kalın çizgilerin kesilmemesi için
+    
+    window.setD(shapeContainer, 'solid-color', "#10b981"); 
+    
+    // İç şekli (Gerçek Geometriyi) oluştur
+    let innerEl;
+    if (type === 'circle') {
+        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
+        innerEl.setAttribute("r", "50");
+    } else if (type === 'ellipse') {
+        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+        innerEl.setAttribute("cx", "50"); innerEl.setAttribute("cy", "50");
+        innerEl.setAttribute("rx", "50"); innerEl.setAttribute("ry", "50");
+    } else if (type === 'polygon') {
+        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        innerEl.setAttribute("points", "50,0 100,100 0,100"); // Üçgen
+    } else if (type === 'line') {
+        innerEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        innerEl.setAttribute("x1", "0"); innerEl.setAttribute("y1", "50");
+        innerEl.setAttribute("x2", "100"); innerEl.setAttribute("y2", "50");
+        innerEl.setAttribute("stroke-width", "5");
+    }
+    
+    // Boyutlandırıldığında çizgi kalınlığının (stroke) bozulmaması için sihirli kod:
+    innerEl.setAttribute("vector-effect", "non-scaling-stroke");
+    
+    // Renklendirme
+    if (type === 'line') {
+        innerEl.setAttribute("stroke", "#10b981");
+        shapeContainer.setAttribute("fill", "none");
+    } else {
+        innerEl.setAttribute("fill", "#10b981");
+    }
+    
+    // İç nesneye tıklanmasını engelle (Tıklamaları ana sarmalayıcı yakalayacak)
+    innerEl.style.pointerEvents = "none";
+    shapeContainer.appendChild(innerEl);
+    
+    // Tuvale Ekle
+    svg.appendChild(shapeContainer); 
+    selectedEl = shapeContainer; 
+    window.saveState(); window.setupLayers(); window.updateEditorUI(shapeContainer); window.renderEditor();
+};
 
     // ======= GÜVENLİ VE HIZLI KAYDIRICI (SLIDER) MOTORU =======
     window.changeProp = function(id, prop, val, elUI) {
