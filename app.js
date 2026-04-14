@@ -216,8 +216,16 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         innerEl.setAttribute("fill", "#10b981");
     }
     
-    // İç nesneye tıklanmasını engelle (Tıklamaları ana sarmalayıcı yakalayacak)
+    // İç nesneye tıklanmasını engelle
     innerEl.style.pointerEvents = "none";
+    
+    // EKLENEN ÇÖZÜM: Tıklamaları yakalayacak görünmez arka plan (Click Catcher)
+    const clickCatcher = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    clickCatcher.setAttribute("width", "100");
+    clickCatcher.setAttribute("height", "100");
+    clickCatcher.setAttribute("fill", "transparent");
+    shapeContainer.appendChild(clickCatcher);
+    
     shapeContainer.appendChild(innerEl);
     
     // Tuvale Ekle
