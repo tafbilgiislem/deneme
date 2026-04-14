@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>SVG Pro Studio | Kusursuz CMS V41 (Sıfır Hata)</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700;800&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -86,55 +85,17 @@
             <div style="width: 1px; background: var(--border); margin: 0 5px; height: 20px;"></div>
             <button class="tool-btn" onclick="document.getElementById('hotkey-modal').style.display='flex'" title="Kısayol Haritası">⌨️</button>
         </div>
-<div id="minimap-container" title="Gezinti Haritası (Sürükleyebilirsiniz)">
-            <div id="minimap-content"></div>
-            <div id="minimap-viewport"></div>
-        </div>
-        ```
 
----
-
-### 2. Adım: Tasarım (CSS)
-`style.css` dosyanı aç ve **en alt satırına** gidip şu kodları yapıştır:
-
-```css
-/* --- MİNİ HARİTA (MINIMAP) STİLLERİ --- */
-#minimap-container {
-    position: absolute;
-    bottom: 30px;
-    right: 30px;
-    width: 200px; /* Harita genişliği */
-    background: #020617;
-    border: 2px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-    z-index: 1000;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    cursor: crosshair;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
-}
-#minimap-container:hover { opacity: 1; }
-#minimap-content {
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-#minimap-viewport {
-    position: absolute;
-    border: 2px solid #ef4444; /* Kırmızı görüş alanı çerçevesi */
-    background: rgba(239, 68, 68, 0.15);
-    pointer-events: none;
-    box-sizing: border-box;
-    z-index: 2;
-}
         <div id="zoom-container">
             <div id="svg-wrapper">
                 <div id="canvas-inner"></div>
                 <svg id="control-layer"></svg>
             </div>
+        </div>
+
+        <div id="minimap-container" title="Gezinti Haritası (Sürükleyebilirsiniz)">
+            <div id="minimap-content"></div>
+            <div id="minimap-viewport"></div>
         </div>
         <div id="status-bar">
             <div id="status-count">Nesne Sayısı: 0</div>
@@ -201,20 +162,20 @@
             <details style="margin-bottom: 10px;" open>
                 <summary style="font-size:11px; font-weight:bold; color:#8b5cf6; cursor:pointer; margin-bottom:5px;">🎨 NESNE EKLE & ARAÇLAR</summary>
                 <div class="group-box" style="margin-top:5px; margin-bottom:5px;">
-                    <div class="action-row" style="margin-bottom:0;">
+                    <div class="action-row" style="margin-bottom:10px;">
                         <button onclick="window.addNewText()" class="action-btn" style="background:#475569;">+ YAZI</button>
                         <button onclick="document.getElementById('img-in').click()" class="action-btn" style="background:#475569;" title="Sürükle-Bırak da Yapabilirsiniz">+ RESİM</button>
-                        <div style="display:flex; flex:2; gap:4px;">
-    <select id="shape-selector" class="font-select" style="margin-bottom:0; flex:1; padding:0 5px; height:35px; border:1px solid #334155; border-radius:8px;">
-        <option value="rect">Kare</option>
-        <option value="circle">Daire</option>
-        <option value="ellipse">Elips</option>
-        <option value="polygon">Çokgen (Üçgen)</option>
-        <option value="line">Çizgi</option>
-    </select>
-    <button onclick="window.addShape(document.getElementById('shape-selector').value)" class="action-btn" style="background:#475569; padding:0 10px; flex:1;">+ EKLE</button>
-</div>
                         <button id="btn-draw" onclick="window.toggleDrawMode()" class="action-btn draw" style="background:#8b5cf6;" title="Fırça Aracı">🖌️ ÇİZİM</button>
+                    </div>
+                    <div style="display:flex; flex:2; gap:4px;">
+                        <select id="shape-selector" class="font-select" style="margin-bottom:0; flex:1; padding:0 5px; height:35px; border:1px solid #334155; border-radius:8px;">
+                            <option value="rect">Kare</option>
+                            <option value="circle">Daire</option>
+                            <option value="ellipse">Elips</option>
+                            <option value="polygon">Çokgen (Üçgen)</option>
+                            <option value="line">Çizgi</option>
+                        </select>
+                        <button onclick="window.addShape(document.getElementById('shape-selector').value)" class="action-btn" style="background:#475569; padding:0 10px; flex:1;">+ EKLE</button>
                     </div>
                 </div>
             </details>
