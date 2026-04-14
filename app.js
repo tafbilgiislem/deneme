@@ -22,6 +22,7 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
 
     window.updateEditorUI = null;
 
+    // Google Fontları (Dışarıdan sürüklenen fontlar da buraya eklenecek)
     const googleFonts = [{ name: "Varsayılan", val: "sans-serif" }, { name: "Roboto", val: "'Roboto', sans-serif" }, { name: "Montserrat", val: "'Montserrat', sans-serif" }, { name: "Poppins", val: "'Poppins', sans-serif" }, { name: "Open Sans", val: "'Open Sans', sans-serif" }, { name: "Lato", val: "'Lato', sans-serif" }];
 
     window.getCanvasCenter = function() {
@@ -308,12 +309,66 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             svg.appendChild(img); selectedEl = img; window.saveState(); window.setupLayers(); window.updateEditorUI(img); window.renderEditor();
         }; reader.readAsDataURL(file);
     };
+
+    // YEREL FONT (TTF, OTF, WOFF) SÜRÜKLE BIRAK SİSTEMİ
+    window.handleFontFile = function(file) {
+        if (!file || (!file.name.endsWith('.ttf') && !file.name.endsWith('.otf') && !file.name.endsWith('.woff'))) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const base64Font = ev.target.result;
+            const fontName = 'Font_' + Date.now();
+            const displayFontName = file.name.replace(/\.[^/.]+$/, ""); // Uzantıyı gizle
+            
+            const svg = document.querySelector('#canvas-inner svg');
+            let defs = svg.querySelector('defs');
+            if (!defs) { defs = document.createElementNS("http://www.w3.org/2000/svg", "defs"); svg.prepend(defs); }
+            
+            let style = defs.querySelector('style#custom-fonts');
+            if (!style) { style = document.createElementNS("http://www.w3.org/2000/svg", "style"); style.id = "custom-fonts"; defs.appendChild(style); }
+            
+            // Fontu doğrudan SVG'nin içine göm (Base64)
+            style.textContent += `@font-face { font-family: '${fontName}'; src: url('${base64Font}'); }\n`;
+
+            // Listeye ekle
+            googleFonts.push({ name: "🔤 " + displayFontName, val: `'${fontName}'` });
+
+            // Fontu göstermek için ekrana yeni bir metin fırlat
+            window.addNewText();
+            if(selectedEl) {
+                selectedEl.setAttribute('font-family', `'${fontName}'`);
+                selectedEl.style.fontFamily = `'${fontName}'`;
+                window.setD(selectedEl, 'raw-text', displayFontName);
+                window.applyTextCurve(selectedEl);
+            }
+            window.saveState();
+            window.renderProperties();
+            alert("Font başarıyla projeye gömüldü! Artık PDF ve SVG çıktılarında da sorunsuz çalışacak.");
+        };
+        reader.readAsDataURL(file);
+    };
     
-    document.getElementById('img-in').onchange = (e) => { window.handleImageFile(e.target.files[0]); e.target.value = ""; };
+    document.getElementById('img-in').onchange = (e) => { 
+        const file = e.target.files[0];
+        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) {
+            window.handleFontFile(file);
+        } else {
+            window.handleImageFile(file); 
+        }
+        e.target.value = ""; 
+    };
+    
     const mainView = document.getElementById('main-view');
     mainView.addEventListener('dragover', (e) => { e.preventDefault(); mainView.style.opacity = '0.8'; });
     mainView.addEventListener('dragleave', (e) => { e.preventDefault(); mainView.style.opacity = '1'; });
-    mainView.addEventListener('drop', (e) => { e.preventDefault(); mainView.style.opacity = '1'; window.handleImageFile(e.dataTransfer.files[0]); });
+    mainView.addEventListener('drop', (e) => { 
+        e.preventDefault(); mainView.style.opacity = '1'; 
+        const file = e.dataTransfer.files[0];
+        if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) {
+            window.handleFontFile(file);
+        } else {
+            window.handleImageFile(file); 
+        }
+    });
 
     window.closeCtx = function() { document.getElementById('context-menu').style.display = 'none'; };
     document.addEventListener('click', window.closeCtx);
@@ -334,6 +389,8 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     window.hideGuides = function(hide) { const gg = document.getElementById('guides-group'); if(gg) gg.style.display = hide ? 'none' : 'block'; };
     window.clearGuides = function() { const gg = document.getElementById('guides-group'); if(gg) { gg.innerHTML = ''; window.saveState(); } };
     window.openExport = function(type) { document.getElementById('export-format').value = type; document.getElementById('export-modal').style.display = 'flex'; };
+    
+    // PDF İNDİRME SİSTEMİ ENTEGRE EDİLDİ
     window.executeExport = function() {
         const format = document.getElementById('export-format').value; const scale = parseInt(document.getElementById('export-scale').value); const scope = document.getElementById('export-scope').value;
         const svg = document.querySelector('#canvas-inner svg'); if(!svg) return;
@@ -350,9 +407,22 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         svg.setAttribute('width', targetW); svg.setAttribute('height', targetH);
         const svgData = new XMLSerializer().serializeToString(svg);
         
-        if (format === 'png') {
+        if (format === 'png' || format === 'pdf') {
             const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); const img = new Image();
-            img.onload = function() { canvas.width = targetW; canvas.height = targetH; ctx.drawImage(img, 0, 0); const a = document.createElement("a"); a.download = "tasarim.png"; a.href = canvas.toDataURL("image/png"); a.click(); finishExport(); };
+            img.onload = function() { 
+                canvas.width = targetW; canvas.height = targetH; ctx.drawImage(img, 0, 0); 
+                
+                if (format === 'png') {
+                    const a = document.createElement("a"); a.download = "tasarim.png"; a.href = canvas.toDataURL("image/png"); a.click(); 
+                } else if (format === 'pdf') {
+                    // PDF Çıktısı Al (Sayfa Yönünü Otomatik Ayarla)
+                    const orientation = targetW > targetH ? 'l' : 'p';
+                    const pdf = new window.jspdf.jsPDF(orientation, 'pt', [targetW, targetH]);
+                    pdf.addImage(canvas.toDataURL("image/png", 1.0), 'PNG', 0, 0, targetW, targetH);
+                    pdf.save("tasarim.pdf");
+                }
+                finishExport(); 
+            };
             img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
         } else {
             const blob = new Blob([svgData], {type: "image/svg+xml;charset=utf-8"}); const url = URL.createObjectURL(blob);
@@ -597,8 +667,6 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             if(window.getD(el, 'fill-type')) window.applyFill(el);
         });
         window.initEngine(mainSvg); window.renderEditor(); window.updateRulers();
-        
-        // Setup Layers bittiğinde haritayı da tetikle
         if(window.updateMinimap) window.updateMinimap();
     };
 
@@ -781,12 +849,14 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
     
     window.updateEditorUI = window.updateUI; 
 
+    // KATMAN SÜRÜKLE BIRAK SİSTEMİ İÇİN GÜNCELLENDİ
     window.renderEditor = function() { 
         window.renderLayers(); 
         if(selectedEl) window.renderProperties(); 
         else document.getElementById('editor-fields').innerHTML = `<div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">👆 Düzenlemek için sahneden veya katmanlardan bir nesne seçin.</div>`;
     };
 
+    let draggedLayerId = null; // Sürüklenen katmanın ID'si
     window.renderLayers = function() {
         const list = document.getElementById('layers-list'); list.innerHTML = "";
         const elements = Array.from(document.querySelectorAll('.duzenlenebilir')).reverse();
@@ -800,12 +870,41 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             if (el.tagName === 'text') { let txt = window.getD(el, 'raw-text') || el.textContent; typeName = `T: ${txt.substring(0,10)}${txt.length>10?'...':''}`; }
 
             const item = document.createElement('div'); item.className = `layer-item ${isActive ? 'active' : ''}`;
+            
+            // Sürükle Bırak Mantığı Eklendi
+            item.draggable = true;
+            item.ondragstart = (e) => { 
+                draggedLayerId = el.id; 
+                e.dataTransfer.effectAllowed = 'move'; 
+                e.target.style.opacity = '0.5';
+            };
+            item.ondragend = (e) => { e.target.style.opacity = '1'; };
+            item.ondragover = (e) => { 
+                e.preventDefault(); 
+                e.currentTarget.classList.add('drag-over'); 
+            };
+            item.ondragleave = (e) => { e.currentTarget.classList.remove('drag-over'); };
+            item.ondrop = (e) => {
+                e.preventDefault(); 
+                e.currentTarget.classList.remove('drag-over');
+                if(!draggedLayerId || draggedLayerId === el.id) return;
+                
+                const draggedEl = document.getElementById(draggedLayerId);
+                if(draggedEl && el) {
+                    // Katmanı listedeki sıraya göre SVG içinde yeniden konumlandır
+                    el.parentNode.insertBefore(draggedEl, el.nextSibling);
+                    window.saveState();
+                    window.renderEditor();
+                }
+                draggedLayerId = null;
+            };
+
             item.onclick = (e) => { 
                 if(e.target.closest('.layer-btn')) return; 
                 selectedEl = el; isDraggingElement = false; 
                 if(window.updateEditorUI) window.updateEditorUI(el); window.renderEditor(); 
             };
-            item.innerHTML = `<span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ${isLocked ? 'text-decoration:line-through; opacity:0.5;' : ''}">${typeName}</span><div class="layer-actions"><button class="layer-btn" onclick="window.moveLayer('${el.id}', 1)" title="Yukarı">▲</button><button class="layer-btn" onclick="window.moveLayer('${el.id}', -1)" title="Aşağı">▼</button><button class="layer-btn" onclick="window.toggleLock('${el.id}')" title="Kilit">${isLocked ? '🔒' : '🔓'}</button><button class="layer-btn" style="color:#ef4444;" onclick="if(confirm('Silinecek?')){ const delId='${el.id}'; if(selectedEl && selectedEl.id===delId) selectedEl=null; document.getElementById(delId).remove(); window.saveState(); window.renderEditor(); document.getElementById('control-layer').innerHTML=''; event.stopPropagation(); }">×</button></div>`;
+            item.innerHTML = `<span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; ${isLocked ? 'text-decoration:line-through; opacity:0.5;' : ''}">☰ ${typeName}</span><div class="layer-actions"><button class="layer-btn" onclick="window.toggleLock('${el.id}')" title="Kilit">${isLocked ? '🔒' : '🔓'}</button><button class="layer-btn" style="color:#ef4444;" onclick="if(confirm('Silinecek?')){ const delId='${el.id}'; if(selectedEl && selectedEl.id===delId) selectedEl=null; document.getElementById(delId).remove(); window.saveState(); window.renderEditor(); document.getElementById('control-layer').innerHTML=''; event.stopPropagation(); }">×</button></div>`;
             list.appendChild(item);
         });
     };
@@ -1046,10 +1145,6 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
             window.saveState(); window.setupLayers(); window.updateEditorUI(selectedEl); window.renderEditor(); 
         } catch(err) { alert('Hata: Lütfen geçerli bir SVG kodu girin.'); }
     };
-
-// ==========================================
-// MİNİ HARİTA (MINIMAP) AKILLI MOTORU
-// ==========================================
 
 window.updateMinimap = function() {
     const svg = document.querySelector('#canvas-inner svg');
