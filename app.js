@@ -589,6 +589,12 @@ const WORKER_URL = "https://deneme.tafbilgiislem.workers.dev";
         const mainSvg = document.querySelector('#canvas-inner svg'); const ctrl = document.getElementById('control-layer');
         if (!mainSvg) return;
         if (!mainSvg.getAttribute('xmlns')) mainSvg.setAttribute('xmlns', "http://www.w3.org/2000/svg");
+        
+        // EKLENEN KISIM: Eski kaydedilmiş şekillerin kalkanlarını otomatik onar
+        mainSvg.querySelectorAll('svg.duzenlenebilir > rect[fill="transparent"]').forEach(r => {
+            r.classList.add("click-catcher");
+            r.setAttribute("stroke", "none");
+        });
         let w = 1920, h = 1080;
         if (mainSvg.hasAttribute('viewBox')) { const vb = mainSvg.getAttribute('viewBox').split(/\s+|,/); if(vb.length >= 4) { w = parseFloat(vb[2]); h = parseFloat(vb[3]); } }
         ctrl.setAttribute("viewBox", `0 0 ${w} ${h}`);
