@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SVG Pro Studio | Kusursuz CMS V41 (Sıfır Hata)</title>
+    <title>SVG Pro Studio | Kusursuz CMS Ultimate</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700;800&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="status-info">İşlem Yapılıyor...</div>
+
+<textarea id="inline-text-editor" spellcheck="false"></textarea>
 
 <div id="context-menu">
     <div class="ctx-item" onclick="if(selectedEl) window.cloneElement(selectedEl.id); window.closeCtx();"><span>⧉ Kopyala</span><span class="kbd">Alt+Sürükle</span></div>
@@ -20,6 +20,7 @@
     <div class="ctx-item" onclick="if(selectedEl) window.moveLayer(selectedEl.id, 1); window.closeCtx();"><span>▲ Öne Getir</span></div>
     <div class="ctx-item" onclick="if(selectedEl) window.moveLayer(selectedEl.id, -1); window.closeCtx();"><span>▼ Arkaya Gönder</span></div>
     <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+    <div class="ctx-item" id="ctx-ungroup" style="display:none;" onclick="if(selectedEl) window.ungroupElement(selectedEl.id); window.closeCtx();"><span>📦 Grubu Çöz</span></div>
     <div class="ctx-item" onclick="if(selectedEl) window.toggleLock(selectedEl.id); window.closeCtx();"><span id="ctx-lock-text">🔒 Kilitle</span></div>
     <div class="ctx-item danger" onclick="if(selectedEl && confirm('Silinecek?')){ selectedEl.remove(); selectedEl=null; window.saveState(); window.renderEditor(); document.getElementById('control-layer').innerHTML=''; } window.closeCtx();"><span>🗑️ Sil</span><span class="kbd">Del</span></div>
 </div>
@@ -28,15 +29,13 @@
     <div class="modal-content">
         <span class="close-modal" onclick="document.getElementById('hotkey-modal').style.display='none'">×</span>
         <h3 style="margin-top:0; color:var(--accent);">⌨️ Kısayol Haritası</h3>
+        <div class="shortcut-row"><span>Çoklu Seçim (Multi-Select)</span><span class="kbd">Boşlukta Sürükle</span></div>
         <div class="shortcut-row"><span>Gezinme (El Aracı)</span><span class="kbd">Space + Sürükle</span></div>
         <div class="shortcut-row"><span>Hızlı Kopyalama</span><span class="kbd">Alt + Sürükle</span></div>
         <div class="shortcut-row"><span>Hassas Taşıma</span><span class="kbd">Ok Tuşları</span></div>
-        <div class="shortcut-row"><span>Hızlı Taşıma</span><span class="kbd">Shift + Ok Tuşları</span></div>
-        <div class="shortcut-row"><span>Geri Al</span><span class="kbd">Ctrl + Z</span></div>
-        <div class="shortcut-row"><span>İleri Al</span><span class="kbd">Ctrl + Y</span></div>
-        <div class="shortcut-row"><span>Kopyala</span><span class="kbd">Ctrl + C</span></div>
-        <div class="shortcut-row"><span>Yapıştır</span><span class="kbd">Ctrl + V</span></div>
-        <div class="shortcut-row" style="border:none;"><span>Sil</span><span class="kbd">Del / Backspace</span></div>
+        <div class="shortcut-row"><span>Geri Al / İleri Al</span><span class="kbd">Ctrl+Z / Ctrl+Y</span></div>
+        <div class="shortcut-row"><span>Kopyala / Yapıştır</span><span class="kbd">Ctrl+C / Ctrl+V</span></div>
+        <div class="shortcut-row" style="border:none;"><span>Yazıyı Düzenle</span><span class="kbd">Çift Tıkla</span></div>
     </div>
 </div>
 
@@ -66,7 +65,7 @@
 
 <div id="login-screen">
     <div class="login-card">
-        <h2 style="margin-top:0; color:white;">Pro Studio V40</h2>
+        <h2 style="margin-top:0; color:white;">Pro Studio Ultimate</h2>
         <div style="font-size:12px; color:#94a3b8; margin-bottom:20px;">Lütfen Cloudflare Worker şifrenizi girin.</div>
         <input type="password" id="passInput" placeholder="Sunucu Şifresi">
         <button id="loginBtn" onclick="window.login()">Sunucuya Bağlan</button>
@@ -100,9 +99,10 @@
             <div id="minimap-content"></div>
             <div id="minimap-viewport"></div>
         </div>
+
         <div id="status-bar">
             <div id="status-count">Nesne Sayısı: 0</div>
-            <div>SVG Pro Studio Ultimate V40</div>
+            <div>SVG Pro Studio Ultimate</div>
             <div id="status-time">Son Kayıt: Bekleniyor...</div>
         </div>
     </div>
@@ -117,32 +117,17 @@
             </div>
             
             <select id="file-selector" style="width:100%; padding:10px; background:#000; color:#fff; border-radius:8px; margin-bottom:10px; border:1px solid #334155; outline:none;">
-                <option value="1.svg">Ana Slayt (yasmani.svg)</option>
-                <option value="2.svg">Kampanya (kampanya.svg)</option>
-                <option value="3.svg">Duyuru (duyuru.svg)</option>
+                <option value="1.svg">Ana Slayt (1.svg)</option>
+                <option value="2.svg">Kampanya (2.svg)</option>
+                <option value="3.svg">Duyuru (3.svg)</option>
             </select>
             
             <details style="margin-bottom: 10px;">
-                <summary style="font-size:11px; font-weight:bold; color:#f59e0b; cursor:pointer; margin-bottom:5px;">🎬 SEÇİLİ SLAYT AYARLARI (JSON)</summary>
-                <div class="group-box" style="margin-top:5px;">
-                    <div style="font-size:10px; color:#94a3b8; margin-bottom:10px; font-style:italic;">Değişiklikler doğrudan settings.json dosyasına işlenir.</div>
-                    <div class="input-group" style="margin-bottom:10px;">
-                        <span class="label-text">BU SLAYTIN EKRANDA KALMA SÜRESİ (ms)</span>
-                        <input type="number" id="slide-time" value="5000">
-                    </div>
-                    <div class="input-group" style="margin-bottom:10px;">
-                        <span class="label-text">BU SLAYT İÇİN GEÇİŞ EFEKTİ</span>
-                        <select id="slide-effect" class="font-select">
-                            <option value="fade">Fade (Yumuşak Geçiş)</option>
-                            <option value="slide">Slide (Kaydırma)</option>
-                            <option value="zoom">Zoom (Yakınlaştırma)</option>
-                            <option value="cube">Cube (3D Küp)</option>
-                            <option value="coverflow">Coverflow (3D Galeri)</option>
-                            <option value="flip">Flip (Kart Çevirme)</option>
-                            <option value="none">Efektsiz</option>
-                        </select>
-                    </div>
-                    <button class="action-btn" style="width:100%; background:#f59e0b; color:black;" onclick="window.saveSlideSettings()">💾 AYARLARI KAYDET (JSON)</button>
+                <summary style="font-size:11px; font-weight:bold; color:#ec4899; cursor:pointer; margin-bottom:5px;">✨ İKON KÜTÜPHANESİ</summary>
+                <div class="group-box" style="margin-top:5px; padding:10px;">
+                    <div style="font-size:10px; color:#94a3b8; margin-bottom:10px; font-style:italic;">Tuvale eklemek için ikonlara tıklayın.</div>
+                    <div class="icon-grid" id="icon-library-grid">
+                        </div>
                 </div>
             </details>
 
@@ -196,7 +181,7 @@
 
         <div id="editor-fields">
             <div style="text-align:center; color:#64748b; margin-top:50px; font-style:italic; font-size:13px;">
-                👆 Düzenlemek için sahneden veya katmanlardan bir nesne seçin.
+                👆 Düzenlemek için sahneden, katmanlardan bir nesne seçin veya <br><br><b>Çoklu seçim yapmak için fareyle boşlukta sürükleyin.</b>
             </div>
         </div>
     </div>
