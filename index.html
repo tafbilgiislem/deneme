@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>SVG Pro Studio | Kusursuz CMS Ultimate</title>
+    <title>SVG Pro Studio | Stabil Ultimate Sürüm</title>
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;700;800&family=Nunito:wght@400;700&family=Open+Sans:wght@400;700&family=Oswald:wght@400;700&family=Pacifico&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700&family=Raleway:wght@400;700&family=Roboto:wght@400;700&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -263,7 +263,7 @@
                 </div>
             </details>
 
-            <details style="margin-bottom: 10px;">
+            <details style="margin-bottom: 10px;" open>
                 <summary style="font-size:11px; font-weight:bold; color:var(--accent); cursor:pointer; margin-bottom:5px;">📐 TUVAL AYARLARI</summary>
                 <div class="group-box" style="margin-top:5px;">
                     <div style="display:flex; gap:10px; align-items: center; margin-bottom:10px;">
@@ -532,7 +532,10 @@
         let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
         elements.forEach(el => {
             let b = {x:0, y:0, width:0, height:0};
-            try { b = el.getBBox(); if (el.tagName === 'svg') { b = { x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, width: parseFloat(el.getAttribute("width")) || b.width, height: parseFloat(el.getAttribute("height")) || b.height }; } } catch(e) {}
+            try { 
+                let tmp = el.getBBox(); b = {x: tmp.x, y: tmp.y, width: tmp.width, height: tmp.height};
+            } catch(e) {}
+            if (el.tagName === 'svg') { b.x = parseFloat(el.getAttribute("x")) || 0; b.y = parseFloat(el.getAttribute("y")) || 0; b.width = parseFloat(el.getAttribute("width")) || b.width; b.height = parseFloat(el.getAttribute("height")) || b.height; }
             if(b.x < minX) minX = b.x; if(b.y < minY) minY = b.y; if(b.x+b.width > maxX) maxX = b.x+b.width; if(b.y+b.height > maxY) maxY = b.y+b.height;
         });
         const grp = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -613,22 +616,30 @@
     mainView.addEventListener('dragleave', (e) => { e.preventDefault(); mainView.style.opacity = '1'; });
     mainView.addEventListener('drop', (e) => { e.preventDefault(); mainView.style.opacity = '1'; const file = e.dataTransfer.files[0]; if(file.name.endsWith('.ttf') || file.name.endsWith('.otf') || file.name.endsWith('.woff')) { window.handleFontFile(file); } else { window.handleImageFile(file); } });
 
+    // YENİ: SAĞ TIK MENÜSÜ TAMİR EDİLDİ
     window.closeCtx = function() { document.getElementById('context-menu').style.display = 'none'; };
     document.addEventListener('click', window.closeCtx);
     document.getElementById('svg-wrapper').addEventListener('contextmenu', (e) => {
-        const el = e.target.closest('.duzenlenebilir');
+        e.preventDefault(); // Varsayılan menüyü iptal et
+        let target = e.target;
+        if(target.classList.contains('handle') && target.dataset.id) { target = document.getElementById(target.dataset.id); }
+        const el = target.closest('.duzenlenebilir');
+        
         if(el) {
-            e.preventDefault(); selectedEl = el; isDraggingElement = false; window.updateEditorUI(el); window.renderEditor();
+            selectedEl = el; isDraggingElement = false; window.updateEditorUI(el); window.renderEditor();
             const ctxMenu = document.getElementById('context-menu');
             document.getElementById('ctx-lock-text').innerText = window.getD(el, 'locked') === "true" ? "🔓 Kilidi Aç" : "🔒 Kilitle";
-            document.getElementById('ctx-ungroup').style.display = window.getD(el, 'is-group') === "true" ? "block" : "none";
+            const ctxUngroup = document.getElementById('ctx-ungroup');
+            if(ctxUngroup) ctxUngroup.style.display = window.getD(el, 'is-group') === "true" ? "block" : "none";
             ctxMenu.style.display = 'block'; let x = e.clientX; let y = e.clientY;
             if(x + 180 > window.innerWidth) x = window.innerWidth - 180; if(y + 200 > window.innerHeight) y = window.innerHeight - 200;
             ctxMenu.style.left = x + 'px'; ctxMenu.style.top = y + 'px';
+        } else {
+            window.closeCtx();
         }
     });
 
-    // YENİ: ÇİFT TIKLAMA İLE METİN DÜZENLEME (HATA VERMEYEN MODAL SİSTEMİ)
+    // YENİ: ÇİFT TIKLAMA İLE METİN DÜZENLEME (STABİL MODAL SİSTEMİ)
     document.getElementById('svg-wrapper').addEventListener('dblclick', (e) => {
         let target = e.target; if (target.tagName === 'textPath' || target.tagName === 'tspan') target = target.closest('text');
         if (target && target.tagName === 'text' && target.classList.contains('duzenlenebilir')) {
@@ -637,7 +648,7 @@
             input.value = window.getD(target, 'raw-text') || target.textContent;
             input.dataset.targetId = target.id;
             modal.style.display = 'flex';
-            input.focus();
+            setTimeout(() => input.focus(), 50);
         }
     });
 
@@ -706,11 +717,32 @@
         hCursor.setAttribute('x1', cursorpt.x); hCursor.setAttribute('x2', cursorpt.x); vCursor.setAttribute('y1', cursorpt.y); vCursor.setAttribute('y2', cursorpt.y);
     });
 
+    // YENİ: TUVAL GENİŞLİK/YÜKSEKLİK ÇEKME (AGRESİF OKUMA SİSTEMİ)
     window.initCanvasSettings = function() {
-        const svg = document.querySelector('#canvas-inner svg'); if (!svg) return; const vb = svg.viewBox.baseVal;
-        document.getElementById('canvas-w').value = vb.width || 1920; document.getElementById('canvas-h').value = vb.height || 1080;
+        const svg = document.querySelector('#canvas-inner svg'); if (!svg) return; 
+        let w = 1920, h = 1080;
+        
+        if (svg.hasAttribute('viewBox')) {
+            const vbParts = svg.getAttribute('viewBox').split(/\s+|,/);
+            if(vbParts.length >= 4) { w = parseFloat(vbParts[2]); h = parseFloat(vbParts[3]); }
+        } else {
+            w = parseFloat(svg.getAttribute('width')) || 1920;
+            h = parseFloat(svg.getAttribute('height')) || 1080;
+            svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        }
+        
+        document.getElementById('canvas-w').value = w;
+        document.getElementById('canvas-h').value = h;
+        
         let bgRect = svg.querySelector('#canvas-background');
-        if (!bgRect) { bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect"); bgRect.id = "canvas-background"; bgRect.setAttribute("x", "0"); bgRect.setAttribute("y", "0"); bgRect.setAttribute("width", vb.width || 1920); bgRect.setAttribute("height", vb.height || 1080); bgRect.setAttribute("fill", "#ffffff"); svg.insertBefore(bgRect, svg.firstChild); }
+        if (!bgRect) { 
+            bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect"); 
+            bgRect.id = "canvas-background"; bgRect.setAttribute("x", "0"); bgRect.setAttribute("y", "0"); 
+            bgRect.setAttribute("width", w); bgRect.setAttribute("height", h); bgRect.setAttribute("fill", "#ffffff"); 
+            svg.insertBefore(bgRect, svg.firstChild); 
+        } else {
+            bgRect.setAttribute("width", w); bgRect.setAttribute("height", h);
+        }
         document.getElementById('canvas-bg-color').value = safeColor(bgRect.getAttribute("fill"));
         if(!svg.querySelector('#guides-group')) { const gg = document.createElementNS("http://www.w3.org/2000/svg", "g"); gg.id = "guides-group"; svg.appendChild(gg); }
         window.updateRulers();
@@ -905,6 +937,9 @@
         const getCoords = (e) => { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const ctm = svg.getScreenCTM(); if (!ctm) return { x: 0, y: 0 }; const cursorpt = pt.matrixTransform(ctm.inverse()); return { x: cursorpt.x, y: cursorpt.y }; };
 
         wrapper.onpointerdown = (e) => {
+            // YENİ: Sağ Tıklamaları Yoksay (Sürükleme moduna girmemesi için)
+            if (e.button === 2) return;
+
             if (isSpacePressed) { isPanning = true; panStart = {x: e.clientX, y: e.clientY}; panOffsetStart = {x: panX, y: panY}; document.getElementById('svg-wrapper').classList.add('panning'); return; }
             const p = getCoords(e); const target = e.target; isModified = false;
 
@@ -1065,14 +1100,18 @@
 
     window.updateUI = function(el, snapX=null, snapY=null) {
         const ctrl = document.getElementById('control-layer'); ctrl.innerHTML = ""; if(!el) return;
+        
         let b = {x:0,y:0,width:0,height:0}; 
         try { 
-            b = el.getBBox(); 
-            if (b.width === 0 && b.height === 0) { b.width = parseFloat(el.getAttribute("width")) || 100; b.height = parseFloat(el.getAttribute("height")) || 100; }
-        } catch(e) { 
-            b = { x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, width: parseFloat(el.getAttribute("width")) || 100, height: parseFloat(el.getAttribute("height")) || 100 };
+            let tempBBox = el.getBBox(); 
+            b = {x: tempBBox.x, y: tempBBox.y, width: tempBBox.width, height: tempBBox.height}; 
+        } catch(e) {}
+        if (el.tagName === 'svg' || window.getD(el, 'is-group') === "true") { 
+            b.x = parseFloat(el.getAttribute("x")) ?? b.x; 
+            b.y = parseFloat(el.getAttribute("y")) ?? b.y; 
+            b.width = parseFloat(el.getAttribute("width")) ?? b.width; 
+            b.height = parseFloat(el.getAttribute("height")) ?? b.height; 
         }
-        if (el.tagName === 'svg') { b = { x: parseFloat(el.getAttribute("x")) || b.x, y: parseFloat(el.getAttribute("y")) || b.y, width: parseFloat(el.getAttribute("width")) || b.width, height: parseFloat(el.getAttribute("height")) || b.height }; }
         
         const transform = el.getAttribute("transform") || ""; const isLocked = window.getD(el, 'locked') === "true";
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("transform", transform); ctrl.appendChild(g);
@@ -1157,9 +1196,20 @@
             }
 
             if (!isPath) {
-                let bbox = {x:0, y:0, width:0, height:0}; try { bbox = el.getBBox(); } catch(e){}
-                if (tag === 'svg') { bbox.x = parseFloat(el.getAttribute("x"))||bbox.x; bbox.y = parseFloat(el.getAttribute("y"))||bbox.y; bbox.width = parseFloat(el.getAttribute("width"))||bbox.width; bbox.height = parseFloat(el.getAttribute("height"))||bbox.height; }
+                let bbox = {x:0, y:0, width:0, height:0}; 
+                try { 
+                    let tempBBox = el.getBBox(); 
+                    bbox = {x: tempBBox.x, y: tempBBox.y, width: tempBBox.width, height: tempBBox.height}; 
+                } catch(e){}
+                
+                if (tag === 'svg' || isGroup) { 
+                    bbox.x = parseFloat(el.getAttribute("x")) ?? bbox.x; 
+                    bbox.y = parseFloat(el.getAttribute("y")) ?? bbox.y; 
+                    bbox.width = parseFloat(el.getAttribute("width")) ?? bbox.width; 
+                    bbox.height = parseFloat(el.getAttribute("height")) ?? bbox.height; 
+                }
                 const x = Math.round(bbox.x || 0); const y = Math.round(bbox.y || 0); let w = 0, h = 0;
+                
                 if(isText) { w = Math.round(parseFloat(el.getAttribute("textLength")) || bbox.width || 0); h = Math.round(parseFloat(window.getD(el, "base-font-size")) || 80); } else { w = Math.round(parseFloat(el.getAttribute("width")) || bbox.width || 0); h = Math.round(parseFloat(el.getAttribute("height")) || bbox.height || 0); }
                 let posHtml = `<div class="label-row"><span class="label-text">X KONUMU</span><span class="value-badge" id="val-x-${id}">${x}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="-1000" max="3000" value="${x}" style="flex:1;" oninput="window.changeProp('${id}', 'x', this.value, this);" onchange="window.saveState()"><input type="number" value="${x}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'x', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">Y KONUMU</span><span class="value-badge" id="val-y-${id}">${y}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="-1000" max="3000" value="${y}" style="flex:1;" oninput="window.changeProp('${id}', 'y', this.value, this);" onchange="window.saveState()"><input type="number" value="${y}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'y', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">GENİŞLİK (W)</span><span class="value-badge" id="val-w-${id}">${w}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="1" max="2500" value="${w}" style="flex:1;" oninput="window.changeProp('${id}', 'w', this.value, this);" onchange="window.saveState()"><input type="number" value="${w}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'w', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">YÜKSEKLİK (H)</span><span class="value-badge" id="val-h-${id}">${h}px</span></div><div style="display:flex; gap:10px;"><input type="range" min="1" max="2500" value="${h}" style="flex:1;" oninput="window.changeProp('${id}', 'h', this.value, this);" onchange="window.saveState()"><input type="number" value="${h}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'h', this.value, this);" onchange="window.saveState()"></div>`;
                 sections.push(window.createPropertySection("Konum ve Boyut", posHtml));
@@ -1202,7 +1252,7 @@
             const rawSvgCode = el.outerHTML.replace(/</g, "&lt;").replace(/>/g, "&gt;");
             let codeHtml = `<textarea id="raw-svg-code" style="width:100%; height:120px; background:#000; color:var(--accent); font-family:monospace; font-size:11px; padding:10px; border-radius:8px; border:1px solid var(--border); resize:vertical;" onchange="window.saveState()">${rawSvgCode}</textarea><button class="action-btn active" style="width:100%; margin-top:10px; padding:10px;" onclick="window.applyRawCode('${id}')">💻 KODU UYGULA</button>`;
             sections.push(window.createPropertySection("</> Canlı SVG Kodu", codeHtml)); f.innerHTML = sections.join('');
-        } catch(err) { f.innerHTML = `<div style="color:#ef4444; padding:20px; font-size:12px; text-align:center;">Özellikler yüklenemedi. Lütfen nesneyi tekrar seçin.</div>`; }
+        } catch(err) { console.error("Özellik Paneli Hatası:", err); f.innerHTML = `<div style="color:#ef4444; padding:20px; font-size:12px; text-align:center;">Özellikler yüklenemedi. Lütfen nesneyi tekrar seçin.</div>`; }
     };
 
     window.applyRawCode = function(id) {
