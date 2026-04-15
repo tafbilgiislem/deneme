@@ -111,17 +111,10 @@
                 
         #status-info{position:fixed;top:0;width:100%;background:var(--accent);text-align:center;padding:10px;z-index:11000;display:none;font-weight:700;letter-spacing:1px}
 
-        #minimap-container { position: absolute; bottom: 30px; right: 30px; width: 200px; background: #020617; border: 2px solid var(--border); border-radius: 8px; overflow: hidden; z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.8); cursor: crosshair; display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; }
-        #minimap-container:hover { opacity: 1; }
-        #minimap-content { width: 100%; height: 100%; pointer-events: none; }
-        #minimap-viewport { position: absolute; border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15); pointer-events: none; box-sizing: border-box; z-index: 2; }
-
         .icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
         .icon-item { background: #334155; border-radius: 6px; padding: 10px; cursor: pointer; text-align: center; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; }
         .icon-item:hover { background: var(--accent); transform: scale(1.1); }
         .icon-item svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-        #inline-text-editor { position: absolute; z-index: 9999; display: none; background: rgba(0,0,0,0.7); color: #fff; border: 2px dashed var(--accent); border-radius: 4px; padding: 0; margin: 0; outline: none; resize: both; text-align: center; overflow: hidden; line-height: 1; }
 
         @media (max-width:1023px){#app-container{flex-direction:column}#sidebar{width:100%;height:50%;border-top:1px solid var(--border);border-left:none;order:2}#main-view{width:100%;height:50%;order:1;padding-left:0;padding-top:0;}#zoom-container{margin:0;width:100%;height:100%;}.floating-tools{bottom:auto;top:10px;left:50%;transform:translateX(-50%)}}
     </style>
@@ -130,7 +123,14 @@
 
 <div id="status-info">İşlem Yapılıyor...</div>
 
-<textarea id="inline-text-editor" spellcheck="false"></textarea>
+<div id="text-edit-modal" class="modal-overlay">
+    <div class="modal-content" style="width:450px; text-align:center;">
+        <span class="close-modal" onclick="document.getElementById('text-edit-modal').style.display='none'">×</span>
+        <h3 style="margin-top:0; color:var(--accent);">✏️ Metni Düzenle</h3>
+        <textarea id="modal-text-input" spellcheck="false" style="width:100%; height:120px; margin-bottom:15px; font-size:16px; resize:vertical; padding:15px; border-radius:10px; border:2px solid var(--border); background:#000; color:#fff;"></textarea>
+        <button class="action-btn active" style="width:100%; padding:15px; font-size:15px;" onclick="window.saveModalText()">KAYDET</button>
+    </div>
+</div>
 
 <div id="context-menu">
     <div class="ctx-item" onclick="if(selectedEl) window.cloneElement(selectedEl.id); window.closeCtx();"><span>⧉ Kopyala</span><span class="kbd">Alt+Sürükle</span></div>
@@ -211,11 +211,6 @@
                 <div id="canvas-inner"></div>
                 <svg id="control-layer"></svg>
             </div>
-        </div>
-
-        <div id="minimap-container" title="Gezinti Haritası (Sürükleyebilirsiniz)">
-            <div id="minimap-content"></div>
-            <div id="minimap-viewport"></div>
         </div>
 
         <div id="status-bar">
@@ -333,11 +328,7 @@
 
     let recentColors = ['#10b981', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#ffffff'];
     window.addRecentColor = function(c) { 
-        if(!recentColors.includes(c)) { 
-            recentColors.unshift(c); 
-            if(recentColors.length > 10) recentColors.pop(); 
-            if(selectedEl) window.renderProperties(); 
-        } 
+        if(!recentColors.includes(c)) { recentColors.unshift(c); if(recentColors.length > 10) recentColors.pop(); if(selectedEl) window.renderProperties(); } 
     };
     function safeColor(c) { if(!c) return "#ffffff"; if(c.length === 4 && c.startsWith('#')) return "#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]; return c.startsWith('#') && c.length === 7 ? c : "#ffffff"; }
 
@@ -364,11 +355,9 @@
     ];
 
     const renderIconLibrary = () => {
-        const grid = document.getElementById('icon-library-grid');
-        if(!grid) return;
+        const grid = document.getElementById('icon-library-grid'); if(!grid) return;
         grid.innerHTML = libraryIcons.map((icon, index) => `<div class="icon-item" title="${icon.name}" onclick="window.addShapeFromLibrary(${index})"><svg viewBox="0 0 24 24">${icon.svg}</svg></div>`).join('');
-    };
-    setTimeout(renderIconLibrary, 100);
+    }; setTimeout(renderIconLibrary, 100);
 
     window.addShapeFromLibrary = function(index) {
         const iconData = libraryIcons[index];
@@ -639,24 +628,28 @@
         }
     });
 
+    // YENİ: ÇİFT TIKLAMA İLE METİN DÜZENLEME (HATA VERMEYEN MODAL SİSTEMİ)
     document.getElementById('svg-wrapper').addEventListener('dblclick', (e) => {
         let target = e.target; if (target.tagName === 'textPath' || target.tagName === 'tspan') target = target.closest('text');
         if (target && target.tagName === 'text' && target.classList.contains('duzenlenebilir')) {
-            const bbox = target.getBoundingClientRect(); const input = document.getElementById('inline-text-editor');
-            input.style.display = 'block'; input.style.left = bbox.left + 'px'; input.style.top = bbox.top + 'px'; input.style.width = Math.max(150, bbox.width + 20) + 'px'; input.style.height = Math.max(50, bbox.height + 20) + 'px';
-            const currentSize = parseFloat(window.getD(target, 'base-font-size')) || 80; input.style.fontSize = (currentSize * currentZoom) + 'px'; input.style.fontFamily = target.getAttribute('font-family') || 'sans-serif'; input.style.transform = target.style.transform;
-            input.value = window.getD(target, 'raw-text') || target.textContent; input.dataset.targetId = target.id; input.focus(); input.select();
+            const modal = document.getElementById('text-edit-modal');
+            const input = document.getElementById('modal-text-input');
+            input.value = window.getD(target, 'raw-text') || target.textContent;
+            input.dataset.targetId = target.id;
+            modal.style.display = 'flex';
+            input.focus();
         }
     });
 
-    const closeInlineEditor = () => {
-        const input = document.getElementById('inline-text-editor'); if (input.style.display === 'none') return;
-        const targetId = input.dataset.targetId; if (targetId) { const val = input.value; window.changeSetting(targetId, 'raw-text', val); window.saveState(); window.renderProperties(); }
-        input.style.display = 'none'; input.dataset.targetId = '';
+    window.saveModalText = function() {
+        const input = document.getElementById('modal-text-input');
+        const targetId = input.dataset.targetId;
+        if (targetId) { 
+            window.changeSetting(targetId, 'raw-text', input.value); 
+            window.saveState(); window.renderProperties(); 
+        }
+        document.getElementById('text-edit-modal').style.display = 'none';
     };
-
-    document.getElementById('inline-text-editor').addEventListener('blur', closeInlineEditor);
-    document.getElementById('inline-text-editor').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); closeInlineEditor(); } if (e.key === 'Escape') { document.getElementById('inline-text-editor').style.display = 'none'; } });
 
     window.hideGuides = function(hide) { const gg = document.getElementById('guides-group'); if(gg) gg.style.display = hide ? 'none' : 'block'; };
     window.clearGuides = function() { const gg = document.getElementById('guides-group'); if(gg) { gg.innerHTML = ''; window.saveState(); } };
@@ -888,7 +881,13 @@
         ctrl.setAttribute("viewBox", `0 0 ${w} ${h}`);
         
         let editables = mainSvg.querySelectorAll('.duzenlenebilir');
-        if (editables.length === 0) { mainSvg.querySelectorAll('text, image, rect, g:not(#guides-group), svg:not(#control-layer), path:not(svg path):not(g path)').forEach(el => { if(el.id !== 'control-layer' && el.id !== 'canvas-background' && !el.closest('#control-layer') && !el.classList.contains('guide-line')) { el.classList.add('duzenlenebilir'); } }); }
+        if (editables.length === 0) { 
+            mainSvg.querySelectorAll('text, image, rect:not(.click-catcher), g:not(#guides-group), svg:not(#control-layer), path:not(svg path):not(g path)').forEach(el => { 
+                if(el.id !== 'control-layer' && el.id !== 'canvas-background' && !el.closest('#control-layer') && !el.classList.contains('guide-line')) { 
+                    el.classList.add('duzenlenebilir'); 
+                } 
+            }); 
+        }
         mainSvg.querySelectorAll('.duzenlenebilir').forEach(el => {
             if(!el.id) el.id = "el_" + Math.random().toString(36).substr(2,9);
             if(window.getD(el, 'locked') === "true") el.classList.add('locked');
@@ -899,7 +898,6 @@
             if(window.getD(el, 'fill-type')) window.applyFill(el);
         });
         window.initEngine(mainSvg); window.renderEditor(); window.updateRulers();
-        if(window.updateMinimap) window.updateMinimap();
     };
 
     window.initEngine = function(svg) {
@@ -917,6 +915,7 @@
             }
 
             if (target.classList.contains('guide-line')) { isDraggingGuide = true; currentGuide = target; try { wrapper.setPointerCapture(e.pointerId); } catch(err){} e.preventDefault(); e.stopPropagation(); return; }
+            
             if (target.classList.contains('handle')) {
                 const el = document.getElementById(target.dataset.id); if (!el || window.getD(el, 'locked') === "true") return;
                 let tempW = 0, tempH = 0;
@@ -928,12 +927,20 @@
             
             const el = target.closest('.duzenlenebilir');
             if (el) {
-                if (e.altKey && window.getD(el, 'locked') !== "true") { const clone = el.cloneNode(true); clone.id = "el_" + Date.now(); clone.classList.add("duzenlenebilir"); el.parentNode.insertBefore(clone, el.nextSibling); selectedEl = clone; } else { selectedEl = el; }
-                isDraggingElement = true; offset.x = p.x - (parseFloat(selectedEl.getAttribute("x")) || 0); offset.y = p.y - (parseFloat(selectedEl.getAttribute("y")) || 0); 
+                if (e.altKey && window.getD(el, 'locked') !== "true") { const clone = el.cloneNode(true); clone.id = "el_" + Date.now(); clone.classList.add("duzenlenebilir"); el.parentNode.insertBefore(clone, el.nextSibling); selectedEl = clone; } 
+                else { selectedEl = el; }
+                
+                isDraggingElement = true; 
+                let ex = parseFloat(selectedEl.getAttribute("x")) || 0; let ey = parseFloat(selectedEl.getAttribute("y")) || 0;
+                if (selectedEl.tagName !== 'svg' && selectedEl.tagName !== 'rect' && selectedEl.tagName !== 'text' && selectedEl.tagName !== 'image') {
+                    try { let bb = selectedEl.getBBox(); ex = bb.x; ey = bb.y; } catch(err){}
+                }
+                offset.x = p.x - ex; offset.y = p.y - ey; 
+                
                 window.updateUI(selectedEl); window.renderEditor();
                 if(window.getD(selectedEl, 'locked') !== "true") { try { wrapper.setPointerCapture(e.pointerId); } catch(err){} }
             } else { 
-                if(!e.target.closest('#sidebar')) { 
+                if(!e.target.closest('#sidebar') && !e.target.closest('.floating-tools')) { 
                     selectedEl = null; ctrl.innerHTML = ""; window.renderEditor(); 
                     isSelecting = true; selectionStart = p;
                     selectionRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -1059,7 +1066,14 @@
     window.updateUI = function(el, snapX=null, snapY=null) {
         const ctrl = document.getElementById('control-layer'); ctrl.innerHTML = ""; if(!el) return;
         let b = {x:0,y:0,width:0,height:0}; 
-        try { b = el.getBBox(); if (el.tagName === 'svg') { b = { x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, width: parseFloat(el.getAttribute("width")) || b.width, height: parseFloat(el.getAttribute("height")) || b.height }; } } catch(e) { return; }
+        try { 
+            b = el.getBBox(); 
+            if (b.width === 0 && b.height === 0) { b.width = parseFloat(el.getAttribute("width")) || 100; b.height = parseFloat(el.getAttribute("height")) || 100; }
+        } catch(e) { 
+            b = { x: parseFloat(el.getAttribute("x")) || 0, y: parseFloat(el.getAttribute("y")) || 0, width: parseFloat(el.getAttribute("width")) || 100, height: parseFloat(el.getAttribute("height")) || 100 };
+        }
+        if (el.tagName === 'svg') { b = { x: parseFloat(el.getAttribute("x")) || b.x, y: parseFloat(el.getAttribute("y")) || b.y, width: parseFloat(el.getAttribute("width")) || b.width, height: parseFloat(el.getAttribute("height")) || b.height }; }
+        
         const transform = el.getAttribute("transform") || ""; const isLocked = window.getD(el, 'locked') === "true";
         const g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("transform", transform); ctrl.appendChild(g);
 
@@ -1143,7 +1157,8 @@
             }
 
             if (!isPath) {
-                let bbox = {x:0, y:0, width:0, height:0}; try { bbox = el.getBBox(); if (tag === 'svg') bbox = { x: parseFloat(el.getAttribute("x"))||0, y: parseFloat(el.getAttribute("y"))||0, width: parseFloat(el.getAttribute("width"))||bbox.width, height: parseFloat(el.getAttribute("height"))||bbox.height }; } catch(e){}
+                let bbox = {x:0, y:0, width:0, height:0}; try { bbox = el.getBBox(); } catch(e){}
+                if (tag === 'svg') { bbox.x = parseFloat(el.getAttribute("x"))||bbox.x; bbox.y = parseFloat(el.getAttribute("y"))||bbox.y; bbox.width = parseFloat(el.getAttribute("width"))||bbox.width; bbox.height = parseFloat(el.getAttribute("height"))||bbox.height; }
                 const x = Math.round(bbox.x || 0); const y = Math.round(bbox.y || 0); let w = 0, h = 0;
                 if(isText) { w = Math.round(parseFloat(el.getAttribute("textLength")) || bbox.width || 0); h = Math.round(parseFloat(window.getD(el, "base-font-size")) || 80); } else { w = Math.round(parseFloat(el.getAttribute("width")) || bbox.width || 0); h = Math.round(parseFloat(el.getAttribute("height")) || bbox.height || 0); }
                 let posHtml = `<div class="label-row"><span class="label-text">X KONUMU</span><span class="value-badge" id="val-x-${id}">${x}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="-1000" max="3000" value="${x}" style="flex:1;" oninput="window.changeProp('${id}', 'x', this.value, this);" onchange="window.saveState()"><input type="number" value="${x}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'x', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">Y KONUMU</span><span class="value-badge" id="val-y-${id}">${y}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="-1000" max="3000" value="${y}" style="flex:1;" oninput="window.changeProp('${id}', 'y', this.value, this);" onchange="window.saveState()"><input type="number" value="${y}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'y', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">GENİŞLİK (W)</span><span class="value-badge" id="val-w-${id}">${w}px</span></div><div style="display:flex; gap:10px; margin-bottom:15px;"><input type="range" min="1" max="2500" value="${w}" style="flex:1;" oninput="window.changeProp('${id}', 'w', this.value, this);" onchange="window.saveState()"><input type="number" value="${w}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'w', this.value, this);" onchange="window.saveState()"></div><div class="label-row"><span class="label-text">YÜKSEKLİK (H)</span><span class="value-badge" id="val-h-${id}">${h}px</span></div><div style="display:flex; gap:10px;"><input type="range" min="1" max="2500" value="${h}" style="flex:1;" oninput="window.changeProp('${id}', 'h', this.value, this);" onchange="window.saveState()"><input type="number" value="${h}" style="width:70px; padding:8px;" oninput="window.changeProp('${id}', 'h', this.value, this);" onchange="window.saveState()"></div>`;
@@ -1199,45 +1214,6 @@
         } catch(err) { alert('Hata: Lütfen geçerli bir SVG kodu girin.'); }
     };
 
-    window.updateMinimap = function() {
-        const svg = document.querySelector('#canvas-inner svg'); const mmContent = document.getElementById('minimap-content'); const mmContainer = document.getElementById('minimap-container'); if(!svg || !mmContent || !mmContainer) return;
-        const vb = svg.viewBox.baseVal; const w = vb.width || 1920; const h = vb.height || 1080; const containerW = 200; const containerH = (h / w) * containerW; mmContainer.style.height = containerH + 'px';
-        const clone = svg.cloneNode(true); const guides = clone.querySelector('#guides-group'); if (guides) guides.remove();
-        clone.setAttribute('width', '100%'); clone.setAttribute('height', '100%'); clone.style.width = '100%'; clone.style.height = '100%';
-        mmContent.innerHTML = ''; mmContent.appendChild(clone); window.updateMinimapViewport();
-    };
-
-    window.updateMinimapViewport = function() {
-        const svg = document.querySelector('#canvas-inner svg'); const mmContainer = document.getElementById('minimap-container'); const mmViewport = document.getElementById('minimap-viewport'); const mainView = document.getElementById('main-view'); if(!svg || !mmContainer || !mmViewport || !mainView) return;
-        const mainRect = mainView.getBoundingClientRect(); const ptTL = svg.createSVGPoint(); const ptBR = svg.createSVGPoint(); ptTL.x = mainRect.left; ptTL.y = mainRect.top; ptBR.x = mainRect.right; ptBR.y = mainRect.bottom;
-        const ctm = svg.getScreenCTM(); if(!ctm) return; const invCTM = ctm.inverse();
-        const svgTL = ptTL.matrixTransform(invCTM); const svgBR = ptBR.matrixTransform(invCTM);
-        const visibleW = svgBR.x - svgTL.x; const visibleH = svgBR.y - svgTL.y;
-        const vb = svg.viewBox.baseVal; const canvasW = vb.width || 1920; const canvasH = vb.height || 1080; const scaleX = mmContainer.clientWidth / canvasW; const scaleY = mmContainer.clientHeight / canvasH;
-        mmViewport.style.left = (svgTL.x * scaleX) + 'px'; mmViewport.style.top = (svgTL.y * scaleY) + 'px'; mmViewport.style.width = (visibleW * scaleX) + 'px'; mmViewport.style.height = (visibleH * scaleY) + 'px';
-    };
-
-    const originalSaveState = window.saveState; window.saveState = function() { if(originalSaveState) originalSaveState(); setTimeout(() => window.updateMinimap(), 50); };
-    const originalApplyZoom = window.applyZoom; window.applyZoom = function() { if(originalApplyZoom) originalApplyZoom(); window.updateMinimapViewport(); };
-    window.addEventListener('resize', window.updateMinimapViewport);
-
-    const initMinimapInteraction = () => {
-        const mmContainer = document.getElementById('minimap-container'); if(!mmContainer) { setTimeout(initMinimapInteraction, 500); return; }
-        let isDraggingMinimap = false;
-        const panFromMinimap = (e) => {
-            const svg = document.querySelector('#canvas-inner svg'); if (!svg) return;
-            const rect = mmContainer.getBoundingClientRect(); const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width)); const y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-            const targetSvgX = (x / rect.width) * (svg.viewBox.baseVal.width || 1920); const targetSvgY = (y / rect.height) * (svg.viewBox.baseVal.height || 1080);
-            const pt = svg.createSVGPoint(); pt.x = targetSvgX; pt.y = targetSvgY; const screenPt = pt.matrixTransform(svg.getScreenCTM());
-            const mainRect = document.getElementById('main-view').getBoundingClientRect(); const centerScreenX = mainRect.left + mainRect.width / 2; const centerScreenY = mainRect.top + mainRect.height / 2;
-            panX += (centerScreenX - screenPt.x) / currentZoom; panY += (centerScreenY - screenPt.y) / currentZoom; window.applyZoom(); window.syncRulerTransform();
-        };
-        mmContainer.addEventListener('pointerdown', (e) => { isDraggingMinimap = true; panFromMinimap(e); mmContainer.setPointerCapture(e.pointerId); });
-        mmContainer.addEventListener('pointermove', (e) => { if (isDraggingMinimap) panFromMinimap(e); });
-        const stopDrag = (e) => { isDraggingMinimap = false; try{ mmContainer.releasePointerCapture(e.pointerId); }catch(err){} };
-        mmContainer.addEventListener('pointerup', stopDrag); mmContainer.addEventListener('pointercancel', stopDrag);
-    };
-    initMinimapInteraction();
 </script>
 </body>
 </html>
